@@ -9,12 +9,34 @@ Connect Claude (or any MCP-compatible AI client) directly to your BookLore insta
 ## Requirements
 
 - [BookLore](https://github.com/booklore-app/booklore) v2.x running and accessible
-- Node.js 20+
+- Node.js 22+
 - An MCP-compatible client (Claude Desktop, Cursor, etc.)
 
 ---
 
 ## Installation
+
+### From GitHub Packages (recommended)
+
+1. Add the scope registry to your project's `.npmrc` (or `~/.npmrc`):
+
+   ```
+   @cyberglitchlabs:registry=https://npm.pkg.github.com
+   ```
+
+2. Authenticate with a GitHub personal access token that has `read:packages` scope:
+
+   ```
+   //npm.pkg.github.com/:_authToken=YOUR_GITHUB_TOKEN
+   ```
+
+3. Install the package:
+
+   ```bash
+   npm install -g @cyberglitchlabs/booklore-mcp
+   ```
+
+### From source
 
 ```bash
 git clone https://github.com/cyberglitchlabs/booklore-mcp.git
@@ -60,14 +82,15 @@ Add the following to your Claude Desktop configuration file:
 **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`  
 **Linux**: `~/.config/Claude/claude_desktop_config.json`
 
+### If installed via npm
+
 **Option A — API token:**
 
 ```json
 {
   "mcpServers": {
     "booklore": {
-      "command": "node",
-      "args": ["/absolute/path/to/booklore-mcp/dist/index.js"],
+      "command": "booklore-mcp",
       "env": {
         "BOOKLORE_TOKEN": "your-token-here",
         "BOOKLORE_BASE_URL": "http://localhost:6060"
@@ -83,8 +106,7 @@ Add the following to your Claude Desktop configuration file:
 {
   "mcpServers": {
     "booklore": {
-      "command": "node",
-      "args": ["/absolute/path/to/booklore-mcp/dist/index.js"],
+      "command": "booklore-mcp",
       "env": {
         "BOOKLORE_USERNAME": "your-username",
         "BOOKLORE_PASSWORD": "your-password",
@@ -95,7 +117,14 @@ Add the following to your Claude Desktop configuration file:
 }
 ```
 
-Replace `/absolute/path/to/booklore-mcp` with the actual path where you cloned the repo.
+### If installed from source
+
+Replace `"command": "booklore-mcp"` with:
+
+```json
+"command": "node",
+"args": ["/absolute/path/to/booklore-mcp/dist/index.js"]
+```
 
 Restart Claude Desktop after saving.
 
@@ -180,6 +209,12 @@ npx tsc --noEmit
 
 # Build for production
 npm run build
+
+# Run tests
+npm test
+
+# Lint
+npm run lint
 ```
 
 ---
