@@ -1,4 +1,4 @@
-<!-- Context: project-intelligence/technical | Priority: high | Version: 1.1 | Updated: 2026-03-15 -->
+<!-- Context: project-intelligence/technical | Priority: high | Version: 1.2 | Updated: 2026-03-15 -->
 
 # Technical Domain
 
@@ -15,15 +15,18 @@
 | Layer | Technology | Version | Rationale |
 |-------|-----------|---------|-----------|
 | Language | TypeScript | ^5.8.0 | Strong typing critical for MCP tool schemas and API contracts |
-| Runtime | Node.js | 20+ | ESM native, stable async, wide MCP SDK support |
+| Runtime | Node.js | 22+ | ESM native, stable async, wide MCP SDK support |
 | Module System | Node16 ESM | — | `"type": "module"` in package.json; all imports use `.js` extensions |
-| MCP Protocol | @modelcontextprotocol/sdk | ^1.12.0 | Official SDK — McpServer, StdioServerTransport, tool registration |
+| MCP Protocol | @modelcontextprotocol/sdk | ^1.27.1 | Official SDK — McpServer, StdioServerTransport, tool registration |
 | Schema/Validation | Zod | ^3.25.6 | Runtime API response validation; types inferred from schemas |
 | Dev Runner | tsx | ^4.19.0 | Fast dev loop without pre-compiling (watch mode) |
 | Build | tsc | (TypeScript compiler) | Outputs to `dist/` with `.d.ts` + source maps |
 | Transport | stdio | — | Standard MCP transport — no HTTP server involved |
+| Test Framework | Vitest | ^3.0.0 | ESM-native, fast, zero-config for pure function tests |
+| Linter | ESLint + typescript-eslint | ^9.0.0 | `no-console` enforcement, TypeScript rules |
+| CI/CD | GitHub Actions | — | Build, lint, test on push; semantic-release on main |
 
-**Not present**: Test framework, linter (ESLint), formatter (Prettier), Docker, CI/CD.
+**Not present**: Formatter (Prettier), Docker.
 
 ## Architecture Pattern
 
@@ -38,6 +41,7 @@ AI Client (Claude Desktop, Cursor)
         │ routes tool calls by name
         ▼
   registerXxxTools()    ← per-domain: books, libraries, shelves, series, authors, notebooks
+                        ← tools/meta.ts: registerMetaTool() — dynamic category enable/disable
         │ typed method calls
         ▼
   BookLoreClient        ← HTTP client with Zod validation + auto token refresh
@@ -48,7 +52,7 @@ AI Client (Claude Desktop, Cursor)
 
 ### Why This Architecture?
 
-MCP servers must communicate via stdio — this is a protocol constraint, not a choice. The flat layered structure (no microservices, no event bus) matches the single-process, single-user nature of a personal MCP tool. Domain-organized tool files keep the 23 tools navigable without a complex plugin system.
+MCP servers must communicate via stdio — this is a protocol constraint, not a choice. The flat layered structure (no microservices, no event bus) matches the single-process, single-user nature of a personal MCP tool. Domain-organized tool files keep the 18 domain tools + 1 meta-tool navigable without a complex plugin system. `tools/meta.ts` provides the `use_booklore_category` meta-tool that dynamically enables/disables tool categories, keeping the startup context window lean.
 
 ## Project Structure
 
@@ -59,14 +63,16 @@ booklore-mcp/
 │   ├── client.ts         # BookLoreClient: typed HTTP client, dual-auth, Zod parsing
 │   ├── types.ts          # All Zod schemas + inferred TypeScript types (single source of truth)
 │   └── tools/
-│       ├── index.ts      # Aggregator: registerAllTools(server, client)
+│       ├── index.ts      # Aggregator: registerAllTools(server, client) → ToolRegistry
+│       ├── meta.ts       # CategoryName, ToolRegistry types + registerMetaTool() — dynamic enable/disable
 │       ├── books.ts      # 6 tools: search_books, get_book, update_book_rating, update_book_status, get_continue_reading, get_recently_added
 │       ├── libraries.ts  # 2 tools: list_libraries, get_library_books
 │       ├── shelves.ts    # 3 tools: list_shelves, list_magic_shelves, get_magic_shelf_books
 │       ├── series.ts     # 2 tools: list_series, get_series_books
 │       ├── authors.ts    # 3 tools: list_authors, get_author, get_author_books
 │       ├── notebooks.ts  # 2 tools: list_notebook_books, get_book_notebook_entries
-│       └── format.ts     # Pure formatting functions — no tool logic, only text output builders
+│       ├── format.ts     # Pure formatting functions — no tool logic, only text output builders
+│       └── format.test.ts  # Unit tests for all formatting functions (52 tests, Vitest)
 ├── dist/                 # Compiled output (tsc → ES2022 + .d.ts + source maps)
 ├── package.json          # ESM package, scripts: build/dev/start
 ├── tsconfig.json         # ES2022 target, Node16 module resolution, strict mode
@@ -87,7 +93,8 @@ booklore-mcp/
 | Auto 401 refresh | Credential-mode tokens expire; silent retry on 401 prevents tool failures mid-session | Transparent to the AI client — tools just work |
 | `format.ts` isolation | All text formatting in pure functions, never inline in tool handlers | Consistent output, testable in isolation, easy to update output format globally |
 | `process.stderr` for logs | MCP protocol uses stdout; mixing logs into stdout corrupts messages | All diagnostics visible in MCP client logs without breaking the protocol |
-| Domain-per-file tool structure | 23 tools across 6 domains; per-file organization prevents a single massive file | Easy to locate and add tools by domain |
+| Domain-per-file tool structure | 18 domain tools across 6 domains; per-file organization prevents a single massive file | Easy to locate and add tools by domain |
+| Dynamic tool categories | 18 domain tools registered at startup but only books (6) enabled by default; `use_booklore_category` meta-tool lets LLM enable others on demand | Reduces per-request context window cost from 18 tool schemas → 7 |
 
 See `decisions-log.md` for full decision history with alternatives.
 
@@ -111,10 +118,12 @@ See `decisions-log.md` for full decision history with alternatives.
 ## Development Environment
 
 ```
-Requirements: Node.js 20+, npm
+Requirements: Node.js 22+, npm
 Setup:        git clone → npm install → npm run build
 Local Dev:    npm run dev   (tsx watch mode — auto-recompile on change)
 Type Check:   npx tsc --noEmit
+Lint:         npm run lint   (eslint src/)
+Test:         npm test       (vitest run)
 Build:        npm run build  (outputs to dist/)
 Run:          npm start      (node dist/index.js)
 ```
@@ -135,7 +144,7 @@ Set either `BOOKLORE_TOKEN` **or** `BOOKLORE_USERNAME`+`BOOKLORE_PASSWORD`, not 
 ```
 Environment: Local / personal machine
 Platform:    Runs as a child process of the MCP client (Claude Desktop, Cursor, etc.)
-CI/CD:       None configured
+CI/CD:       GitHub Actions (ci.yml: lint+build+test on push; release.yml: semantic-release on main)
 Monitoring:  process.stderr logs visible in MCP client's server log output
 ```
 
@@ -152,10 +161,11 @@ Monitoring:  process.stderr logs visible in MCP client's server log output
 }
 ```
 
-## Complete Tool Inventory (23 tools)
+## Complete Tool Inventory (19 tools: 18 domain + 1 meta)
 
 | Domain | Tool | Operation |
 |--------|------|-----------|
+| Meta | `use_booklore_category` | Control — enable or disable a tool category (books/libraries/shelves/series/authors/notebooks) |
 | Books | `search_books` | Read — filter by title/author/library/shelf/status/rating/language/format |
 | Books | `get_book` | Read — full detail: metadata, progress, files, shelves, Goodreads rating |
 | Books | `update_book_rating` | Write — set personal rating (1–5) |

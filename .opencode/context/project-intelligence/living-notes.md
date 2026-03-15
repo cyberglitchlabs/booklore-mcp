@@ -1,4 +1,4 @@
-<!-- Context: project-intelligence/notes | Priority: high | Version: 1.1 | Updated: 2026-03-15 -->
+<!-- Context: project-intelligence/notes | Priority: high | Version: 1.2 | Updated: 2026-03-15 -->
 
 # Living Notes
 
@@ -16,11 +16,11 @@
 
 | Item | Impact | Priority | Mitigation |
 |------|--------|----------|------------|
-| No test framework | Regressions possible on refactor; correctness relies on manual testing against live BookLore | High | Add Vitest; start with `format.ts` pure functions (easiest to test in isolation) |
-| No linter / formatter | Style drift possible as contributors add tools | Medium | Add ESLint + Prettier; enforce via pre-commit hook |
+| ~~No test framework~~ | ~~Regressions possible on refactor; correctness relies on manual testing against live BookLore~~ | ~~High~~ | Resolved — Vitest added, 52 tests in `format.test.ts` |
+| ~~No linter / formatter~~ | ~~Style drift possible as contributors add tools~~ | ~~Medium~~ | Resolved — ESLint + typescript-eslint added, `no-console` rule enforced |
 | Zod schemas maintained manually | BookLore API changes silently break schemas | High | Accept as ongoing cost; document update procedure in `technical-domain.md` |
-| No CI/CD pipeline | No automated build or type-check on PR/push | Low | Add GitHub Actions: `tsc --noEmit` + `npm run build` |
-| `console.log` ban undocumented in code | Future contributors may add console.log and break MCP protocol | Medium | Add eslint rule: `no-console` (or a comment block in `index.ts`) |
+| ~~No CI/CD pipeline~~ | ~~No automated build or type-check on PR/push~~ | ~~Low~~ | Resolved — GitHub Actions ci.yml + release.yml added |
+| ~~`console.log` ban undocumented in code~~ | ~~Future contributors may add console.log and break MCP protocol~~ | ~~Medium~~ | Resolved — enforced by ESLint `no-console` rule |
 
 ### Technical Debt Details
 
@@ -30,7 +30,7 @@
 *Root Cause*: v0.1.0 shipped fast as a personal tool; tests deferred
 *Proposed Solution*: Add Vitest (ESM-native, no config overhead); start with `format.ts` pure function unit tests, then mock-based `client.ts` tests
 *Effort*: Medium (2–4 hours for initial suite)
-*Status*: Acknowledged
+*Status*: Resolved — Vitest added; 52 tests covering format.ts
 
 **No Linter / Formatter**
 *Priority*: Medium
@@ -38,7 +38,7 @@
 *Root Cause*: Deferred for simplicity at v0.1.0
 *Proposed Solution*: ESLint with TypeScript plugin + `no-console` rule; Prettier for formatting
 *Effort*: Small (1–2 hours)
-*Status*: Acknowledged
+*Status*: Resolved — ESLint with typescript-eslint + no-console rule
 
 ---
 
@@ -92,15 +92,15 @@
 
 - **Zod-first API parsing** — Catching API shape issues at the boundary has already prevented silent failures; the investment was worth it
 - **Domain-per-file tool structure** — Adding new tools is straightforward; each domain file is self-contained and short
-- **`format.ts` isolation** — When output formatting needed adjustment, one file change updated all 18 read tools
+- **`format.ts` isolation** — When output formatting needed adjustment, one file change updated all 18 read tools; 52 Vitest tests cover all formatting functions
 - **Discriminated union auth** — Zero auth-related bugs since initial implementation; type system enforces the invariant
 - **stderr-only logging** — No MCP protocol contamination incidents; contributors just need to know the rule
+- **Dynamic tool categories** — `use_booklore_category` reduced startup tool count from 18 → 7; listChanged round-trip works cleanly with Claude Desktop
 
 ### What Could Be Better
 
-- **No tests** — Any refactor is risky; pure functions in `format.ts` are screaming to be tested
 - **Manual Zod schema maintenance** — There's no automated way to detect when BookLore API shape has changed; relies on manual testing or user bug reports
-- **Tool discovery for new contributors** — 23 tools across 7 files; new contributors need to read `technical-domain.md` to understand the structure
+- **Tool discovery for new contributors** — 18 domain tools + 1 meta-tool across 8 files; new contributors need to read `technical-domain.md` to understand the structure
 
 ### Lessons Learned
 
@@ -114,7 +114,7 @@
 
 ### Code Patterns Worth Preserving
 
-- **`registerXxxTools(server, client)` pattern** — Each domain file exports exactly one registration function. Keep this — it makes `tools/index.ts` a clean aggregator.
+- **`registerXxxTools(server, client)` pattern** — Each domain file exports exactly one registration function returning `RegisteredTool[]`. `tools/index.ts` aggregates into a `ToolRegistry` and `registerMetaTool()` in `tools/meta.ts` controls category visibility.
 - **`z.infer<typeof XxxSchema>` type inference** — Never write a type twice; schema is the source of truth.
 - **`process.stderr.write()` for all logging** — Not `console.log`, not `console.error`. `process.stderr.write()` only.
 - **Pure functions in `format.ts`** — Formatters take typed objects, return strings, no side effects. Keep this separation.
@@ -133,22 +133,24 @@
 
 | Project | Goal | Timeline |
 |---------|------|----------|
-| Add test framework (Vitest) | Safety net for refactors | Next milestone |
+| Dynamic tool categories | Implemented — use_booklore_category meta-tool; 7 tools visible at startup | Complete |
 | Expand write operations | Shelf management, notebook write ops | Post v0.1.0 stabilization |
 | Investigate progress write API | Enable `update_book_progress` tool | Research needed first |
-| Add linter + formatter | Enforce `no-console` rule, consistent style | Near-term |
 
 ---
 
 ## Archive (Resolved Items)
 
-_Nothing archived yet — project is at v0.1.0._
+- **Test framework** — Resolved 2026-03-15 — Vitest added, 52 tests in `src/tools/format.test.ts`
+- **Linter/formatter** — Resolved 2026-03-15 — ESLint + typescript-eslint, `no-console` rule enforced
+- **CI/CD pipeline** — Resolved 2026-03-15 — GitHub Actions ci.yml + release.yml
+- **console.log ban documentation** — Resolved 2026-03-15 — Enforced by ESLint `no-console` rule
 
 ---
 
 ## Onboarding Checklist
 
-- [x] Review known technical debt (no tests, no linter) and understand impact
+- [x] Review known technical debt (Zod schema maintenance) and understand impact
 - [x] Know the open questions (progress write, shelf write, multi-user)
 - [x] Understand the BookLore API volatility issue and the Zod mitigation
 - [x] Be aware of the `.js` extension gotcha for ESM imports

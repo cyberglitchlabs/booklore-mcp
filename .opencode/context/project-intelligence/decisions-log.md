@@ -1,4 +1,4 @@
-<!-- Context: project-intelligence/decisions | Priority: high | Version: 1.1 | Updated: 2026-03-15 -->
+<!-- Context: project-intelligence/decisions | Priority: high | Version: 1.2 | Updated: 2026-03-15 -->
 
 # Decisions Log
 
@@ -163,6 +163,39 @@ All diagnostic output (startup messages, auth status, connectivity check, errors
 - **Positive**: Protocol integrity maintained; all logs still visible in client's MCP server log viewer
 - **Negative**: Slightly unusual for Node.js developers used to console.log
 - **Risk**: Any future contributor using console.log will break the server — worth documenting (done)
+
+---
+
+## Decision: Dynamic Tool Category Registration
+
+**Date**: 2026-03-15
+**Status**: Decided
+**Owner**: Author / Maintainer
+
+### Context
+All 18 domain tools were eagerly registered at startup, injecting all their schemas into the LLM's context window on every request. With multiple MCP servers connected simultaneously, this wastes tokens and increases latency. MCP SDK v1.27.1+ provides `RegisteredTool.enable()` / `disable()` with automatic `listChanged` notifications.
+
+### Decision
+Register all 18 tools at startup but immediately `disable()` 5 of 6 categories before `server.connect()`. A `use_booklore_category` meta-tool (always visible) lets the LLM enable/disable categories on demand. Only the `books` category (6 tools) is enabled by default.
+
+### Rationale
+- `disable()` before `server.connect()` stores the flag without firing notifications — safe at startup
+- LLM sees 7 tools at startup (6 book tools + 1 meta-tool) instead of 18, reducing per-request schema token cost
+- Enable/disable is idempotent and reversible — handles stay valid; no re-registration needed
+- `listChanged` notification fires automatically on `.enable()` / `.disable()` — no manual wiring required
+- Books is the most universally needed category; all others are opt-in
+
+### Alternatives Considered
+| Alternative | Pros | Cons | Why Rejected? |
+|-------------|------|------|---------------|
+| `search_tools` meta-tool | Single tool for discovery | Returns tool schemas as text, not proper tool registrations; no native listChanged integration | Heavier prompt overhead per lookup |
+| Remove/re-register pattern | Tools fully absent from memory | SDK throws on duplicate name registration; must track handles and null them out carefully | More fragile than enable/disable |
+| Leave all tools always enabled | Simpler | Context window cost per request; scales poorly as more tools are added | Suboptimal for multi-server setups |
+
+### Impact
+- **Positive**: Per-request context window reduced by ~60% (18 → 7 visible tool schemas)
+- **Negative**: Newly-enabled tools available only on the *next* LLM turn (listChanged round-trip latency)
+- **Risk**: Clients that don't support `listChanged` won't see newly-enabled tools — meta-tool response includes tool names as text mitigation
 
 ---
 
