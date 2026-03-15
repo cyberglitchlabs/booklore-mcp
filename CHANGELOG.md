@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/cyberglitchlabs/booklore-mcp/compare/v1.0.2...v1.1.0) (2026-03-15)
+
+
+### Features
+
+* add dynamic tool category management to reduce LLM context usage ([4c6e696](https://github.com/cyberglitchlabs/booklore-mcp/commit/4c6e6965cc0eff52b6095cb8eab6750eea4ee899))
+
 ## [1.0.2](https://github.com/cyberglitchlabs/booklore-mcp/compare/v1.0.1...v1.0.2) (2026-03-15)
 
 
