@@ -33,22 +33,46 @@ import { z } from "zod";
 // Config
 // ---------------------------------------------------------------------------
 
-export interface BookLoreConfig {
-  baseUrl: string;
-  token: string;
-}
+export type BookLoreConfig =
+  | { baseUrl: string; token: string; username?: never; password?: never }
+  | { baseUrl: string; username: string; password: string; token?: never };
 
 export function loadConfigFromEnv(): BookLoreConfig {
-  const baseUrl = process.env["BOOKLORE_BASE_URL"] ?? "http://localhost:6060";
-  const token = process.env["BOOKLORE_TOKEN"] ?? "";
-  if (!token) {
-    throw new Error(
-      "BOOKLORE_TOKEN environment variable is required. " +
-        "Get your token from the BookLore UI (Settings → API Token)."
-    );
+  const baseUrl = (
+    process.env["BOOKLORE_BASE_URL"] ?? "http://localhost:6060"
+  ).replace(/\/$/, "");
+
+  const token = process.env["BOOKLORE_TOKEN"];
+  if (token) {
+    return { baseUrl, token };
   }
-  return { baseUrl: baseUrl.replace(/\/$/, ""), token };
+
+  const username = process.env["BOOKLORE_USERNAME"];
+  const password = process.env["BOOKLORE_PASSWORD"];
+  if (username && password) {
+    return { baseUrl, username, password };
+  }
+
+  throw new Error(
+    "BookLore authentication is not configured.\n" +
+      "Option A — API token:    Set BOOKLORE_TOKEN\n" +
+      "Option B — Credentials:  Set BOOKLORE_USERNAME and BOOKLORE_PASSWORD"
+  );
 }
+
+// ---------------------------------------------------------------------------
+// Auth response schemas
+// ---------------------------------------------------------------------------
+
+const LoginResponseSchema = z.object({
+  accessToken: z.string(),
+  refreshToken: z.string(),
+});
+
+const RefreshResponseSchema = z.object({
+  accessToken: z.string(),
+  refreshToken: z.string(),
+});
 
 // ---------------------------------------------------------------------------
 // HTTP error
@@ -89,19 +113,82 @@ function buildUrl(base: string, path: string, params?: Params): string {
 
 export class BookLoreClient {
   private readonly baseUrl: string;
-  private readonly headers: Record<string, string>;
+  private readonly credentials: { username: string; password: string } | null;
+  private accessToken: string;
+  private refreshToken: string;
 
   constructor(config: BookLoreConfig) {
     this.baseUrl = config.baseUrl;
-    this.headers = {
-      Authorization: `Bearer ${config.token}`,
+    if (config.token) {
+      this.credentials = null;
+      this.accessToken = config.token;
+      this.refreshToken = "";
+    } else {
+      this.credentials = { username: config.username!, password: config.password! };
+      this.accessToken = "";
+      this.refreshToken = "";
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Auth
+  // -------------------------------------------------------------------------
+
+  /** Call once on startup when using username/password auth. No-op in token mode. */
+  async ensureAuthenticated(): Promise<void> {
+    if (this.credentials === null) return;
+    await this.login(this.credentials.username, this.credentials.password);
+  }
+
+  private async login(username: string, password: string): Promise<void> {
+    const url = buildUrl(this.baseUrl, "/api/v1/auth/login");
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+    if (!response.ok) {
+      const text = await response.text().catch(() => response.statusText);
+      throw new BookLoreApiError(response.status, "/api/v1/auth/login", text);
+    }
+    const json: unknown = await response.json();
+    const data = LoginResponseSchema.parse(json);
+    this.accessToken = data.accessToken;
+    this.refreshToken = data.refreshToken;
+    process.stderr.write("BookLore: logged in with username/password\n");
+  }
+
+  private async refreshAccessToken(): Promise<void> {
+    if (!this.refreshToken) {
+      throw new Error("No refresh token available — cannot refresh access token");
+    }
+    const url = buildUrl(this.baseUrl, "/api/v1/auth/refresh-token");
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ token: this.refreshToken }),
+    });
+    if (!response.ok) {
+      const text = await response.text().catch(() => response.statusText);
+      throw new BookLoreApiError(response.status, "/api/v1/auth/refresh-token", text);
+    }
+    const json: unknown = await response.json();
+    const data = RefreshResponseSchema.parse(json);
+    this.accessToken = data.accessToken;
+    this.refreshToken = data.refreshToken;
+    process.stderr.write("BookLore: access token refreshed\n");
+  }
+
+  private authHeaders(): Record<string, string> {
+    return {
+      Authorization: `Bearer ${this.accessToken}`,
       "Content-Type": "application/json",
       Accept: "application/json",
     };
   }
 
   // -------------------------------------------------------------------------
-  // Core fetch
+  // Core fetch (with auto-refresh on 401)
   // -------------------------------------------------------------------------
 
   private async get<T>(
@@ -110,7 +197,12 @@ export class BookLoreClient {
     params?: Params
   ): Promise<T> {
     const url = buildUrl(this.baseUrl, path, params);
-    const response = await fetch(url, { headers: this.headers });
+    const response = await fetch(url, { headers: this.authHeaders() });
+    if (response.status === 401 && this.credentials !== null) {
+      await this.refreshAccessToken();
+      const retried = await fetch(url, { headers: this.authHeaders() });
+      return this.parseResponse(retried, path, schema);
+    }
     return this.parseResponse(response, path, schema);
   }
 
@@ -122,9 +214,18 @@ export class BookLoreClient {
     const url = buildUrl(this.baseUrl, path);
     const response = await fetch(url, {
       method: "PUT",
-      headers: this.headers,
+      headers: this.authHeaders(),
       body: JSON.stringify(body),
     });
+    if (response.status === 401 && this.credentials !== null) {
+      await this.refreshAccessToken();
+      const retried = await fetch(url, {
+        method: "PUT",
+        headers: this.authHeaders(),
+        body: JSON.stringify(body),
+      });
+      return this.parseResponse(retried, path, schema);
+    }
     return this.parseResponse(response, path, schema);
   }
 

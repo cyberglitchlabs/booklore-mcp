@@ -27,18 +27,28 @@ npm run build
 
 ## Configuration
 
-### Get your BookLore token
+BookLore MCP supports two authentication methods.
+
+### Option A — API token (recommended if available)
 
 1. Log in to your BookLore instance
 2. Go to **Settings → Profile**
 3. Copy your API token
 
+### Option B — Username / password
+
+If you don't have easy access to an API token, you can authenticate with your BookLore username and password. The server will log in on startup, cache the access token, and automatically refresh it when it expires.
+
 ### Environment variables
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
-| `BOOKLORE_TOKEN` | ✅ | — | Your BookLore JWT token |
 | `BOOKLORE_BASE_URL` | ❌ | `http://localhost:6060` | Base URL of your BookLore instance |
+| `BOOKLORE_TOKEN` | ✅ (Option A) | — | Your BookLore API token |
+| `BOOKLORE_USERNAME` | ✅ (Option B) | — | BookLore username |
+| `BOOKLORE_PASSWORD` | ✅ (Option B) | — | BookLore password |
+
+Set either `BOOKLORE_TOKEN` **or** `BOOKLORE_USERNAME` + `BOOKLORE_PASSWORD` — not both.
 
 ---
 
@@ -50,6 +60,8 @@ Add the following to your Claude Desktop configuration file:
 **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`  
 **Linux**: `~/.config/Claude/claude_desktop_config.json`
 
+**Option A — API token:**
+
 ```json
 {
   "mcpServers": {
@@ -58,6 +70,24 @@ Add the following to your Claude Desktop configuration file:
       "args": ["/absolute/path/to/booklore-mcp/dist/index.js"],
       "env": {
         "BOOKLORE_TOKEN": "your-token-here",
+        "BOOKLORE_BASE_URL": "http://localhost:6060"
+      }
+    }
+  }
+}
+```
+
+**Option B — Username / password:**
+
+```json
+{
+  "mcpServers": {
+    "booklore": {
+      "command": "node",
+      "args": ["/absolute/path/to/booklore-mcp/dist/index.js"],
+      "env": {
+        "BOOKLORE_USERNAME": "your-username",
+        "BOOKLORE_PASSWORD": "your-password",
         "BOOKLORE_BASE_URL": "http://localhost:6060"
       }
     }
