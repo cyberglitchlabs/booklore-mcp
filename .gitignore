@@ -1,0 +1,15 @@
+# Temp/session files
+.tmp/
+
+# Node
+node_modules/
+dist/
+
+# Environment
+.env
+.env.local
+
+# Editor
+.vscode/
+.idea/
+*.swp
