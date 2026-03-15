@@ -2,7 +2,9 @@ import { McpServer, RegisteredTool } from "@modelcontextprotocol/sdk/server/mcp.
 import { z } from "zod";
 import { BookLoreClient } from "../client.js";
 import { ReadStatusSchema, BookFileTypeSchema } from "../types.js";
-import { formatBookSummary, formatBookDetail, formatPageInfo } from "./format.js";
+import { formatBookSummary, formatBookDetail, formatPageInfo, formatBookPage } from "./format.js";
+import { wrapToolHandler } from "./errors.js";
+import { PaginationSchema, SortSchema } from "./schemas.js";
 
 // ---------------------------------------------------------------------------
 // Tool registration
@@ -32,6 +34,13 @@ function registerSearchBooks(server: McpServer, client: BookLoreClient): Registe
         "filtering by library, shelf, series, author, language, file type, rating, and read status. " +
         "Returns paginated results.",
       inputSchema: z.object({
+        ...PaginationSchema.shape,
+        ...SortSchema.shape,
+        // P3-H: narrow sort to known valid values for the books endpoint
+        sort: z
+          .enum(["title", "addedOn", "lastReadTime", "personalRating"])
+          .optional()
+          .describe("Sort field: title, addedOn, lastReadTime, or personalRating"),
         search: z.string().optional().describe("Full-text search across title, author, and description"),
         libraryId: z.number().int().positive().optional().describe("Filter by library ID"),
         shelfId: z.number().int().positive().optional().describe("Filter by shelf ID"),
@@ -45,26 +54,19 @@ function registerSearchBooks(server: McpServer, client: BookLoreClient): Registe
         maxRating: z.number().int().min(1).max(5).optional().describe("Maximum personal rating (1–5)"),
         authors: z.string().optional().describe("Filter by author name (comma-separated for multiple)"),
         language: z.string().optional().describe("Filter by language code (e.g. 'en', 'fr')"),
-        sort: z
-          .string()
-          .optional()
-          .describe("Sort field (e.g. 'title', 'addedOn', 'lastReadTime', 'personalRating')"),
-        dir: z.enum(["asc", "desc"]).optional().describe("Sort direction: asc or desc"),
-        page: z.number().int().min(0).optional().default(0).describe("Page number (0-indexed)"),
-        size: z.number().int().min(1).max(100).optional().default(20).describe("Page size (1–100)"),
       }),
     },
-    async (params) => {
+    wrapToolHandler(async (params) => {
       const result = await client.listBooks(params);
 
       const lines = [
         formatPageInfo(result, "book"),
         "",
-        ...result.content.map(formatBookSummary),
+        ...result.content.map((book) => formatBookPage(book)),
       ];
 
       return { content: [{ type: "text", text: lines.join("\n") }] };
-    }
+    })
   );
 }
 
@@ -83,10 +85,10 @@ function registerGetBook(server: McpServer, client: BookLoreClient): RegisteredT
         bookId: z.number().int().positive().describe("The BookLore book ID"),
       }),
     },
-    async ({ bookId }) => {
+    wrapToolHandler(async ({ bookId }) => {
       const book = await client.getBook(bookId);
       return { content: [{ type: "text", text: formatBookDetail(book) }] };
-    }
+    })
   );
 }
 
@@ -104,12 +106,12 @@ function registerUpdateBookRating(server: McpServer, client: BookLoreClient): Re
         rating: z.number().int().min(1).max(5).describe("Rating from 1 (lowest) to 5 (highest)"),
       }),
     },
-    async ({ bookId, rating }) => {
+    wrapToolHandler(async ({ bookId, rating }) => {
       await client.updateBookRating(bookId, rating);
       return {
         content: [{ type: "text", text: `Rating updated to ${rating}/5 for book ${bookId}.` }],
       };
-    }
+    })
   );
 }
 
@@ -129,12 +131,12 @@ function registerUpdateBookStatus(server: McpServer, client: BookLoreClient): Re
         ),
       }),
     },
-    async ({ bookId, status }) => {
+    wrapToolHandler(async ({ bookId, status }) => {
       await client.updateBookStatus(bookId, status);
       return {
         content: [{ type: "text", text: `Status updated to "${status}" for book ${bookId}.` }],
       };
-    }
+    })
   );
 }
 
@@ -151,14 +153,14 @@ function registerGetContinueReading(server: McpServer, client: BookLoreClient): 
         limit: z.number().int().min(1).max(50).optional().default(10).describe("Maximum number of books to return"),
       }),
     },
-    async ({ limit }) => {
+    wrapToolHandler(async ({ limit }) => {
       const books = await client.getContinueReading(limit);
       if (books.length === 0) {
         return { content: [{ type: "text", text: "No books currently in progress." }] };
       }
       const lines = [`${books.length} book(s) in progress:`, "", ...books.map(formatBookSummary)];
       return { content: [{ type: "text", text: lines.join("\n") }] };
-    }
+    })
   );
 }
 
@@ -175,13 +177,13 @@ function registerGetRecentlyAdded(server: McpServer, client: BookLoreClient): Re
         limit: z.number().int().min(1).max(50).optional().default(10).describe("Maximum number of books to return"),
       }),
     },
-    async ({ limit }) => {
+    wrapToolHandler(async ({ limit }) => {
       const books = await client.getRecentlyAdded(limit);
       if (books.length === 0) {
         return { content: [{ type: "text", text: "No recently added books found." }] };
       }
       const lines = [`${books.length} recently added book(s):`, "", ...books.map(formatBookSummary)];
       return { content: [{ type: "text", text: lines.join("\n") }] };
-    }
+    })
   );
 }

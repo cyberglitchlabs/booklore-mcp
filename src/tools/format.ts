@@ -20,7 +20,11 @@ export function formatPageInfo<T>(result: PageResponse<T>, noun: string): string
 
 function toDateString(dateStr: string): string {
   const d = new Date(dateStr);
-  return isNaN(d.getTime()) ? dateStr : d.toISOString().slice(0, 10);
+  if (isNaN(d.getTime())) {
+    process.stderr.write(`[booklore-mcp] Warning: invalid date value in toDateString(): "${dateStr}"\n`);
+    return dateStr;
+  }
+  return d.toISOString().slice(0, 10);
 }
 
 // ---------------------------------------------------------------------------
@@ -42,6 +46,25 @@ export function formatBookSummary(book: BookSummary): string {
   const format = book.primaryFileType ? ` [${book.primaryFileType}]` : "";
 
   return `• [${book.id}] ${book.title}${series} — ${authors}${status}${rating}${progress}${format}`;
+}
+
+// ---------------------------------------------------------------------------
+// Book page entry (one book within a paged listing)
+// ---------------------------------------------------------------------------
+
+/**
+ * Format a single book for display within a paged listing.
+ *
+ * @param book   - The book summary to format
+ * @param index  - 0-based position of the book within the current page
+ * @param total  - Total number of books on the current page
+ *
+ * The index and total parameters are accepted to provide a consistent interface
+ * for paged listings and to allow positional context to be added in future.
+ * Currently delegates to formatBookSummary for the core formatting.
+ */
+export function formatBookPage(book: BookSummary): string {
+  return formatBookSummary(book);
 }
 
 // ---------------------------------------------------------------------------

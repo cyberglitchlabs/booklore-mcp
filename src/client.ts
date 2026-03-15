@@ -23,8 +23,6 @@ import {
   FilterOptionsSchema,
   PageResponse,
   PageResponseSchema,
-  UpdateRatingRequestSchema,
-  UpdateStatusRequestSchema,
   ReadStatus,
 } from "./types.js";
 import { z } from "zod";
@@ -70,18 +68,29 @@ export function loadConfigFromEnv(): BookLoreConfig {
 }
 
 // ---------------------------------------------------------------------------
-// Auth response schemas
+// P2-H: Request timeout constant — replaces all AbortSignal.timeout(30_000) literals
 // ---------------------------------------------------------------------------
 
-const LoginResponseSchema = z.object({
+const REQUEST_TIMEOUT_MS = 30_000;
+
+// ---------------------------------------------------------------------------
+// P2-F: Consolidated auth token schema — replaces LoginResponseSchema + RefreshResponseSchema
+// ---------------------------------------------------------------------------
+
+const AuthTokenResponseSchema = z.object({
   accessToken: z.string(),
   refreshToken: z.string(),
 });
 
-const RefreshResponseSchema = z.object({
-  accessToken: z.string(),
-  refreshToken: z.string(),
-});
+// ---------------------------------------------------------------------------
+// P2-A: Pre-built PageResponseSchema composites — avoids per-request schema construction
+// ---------------------------------------------------------------------------
+
+const BookSummaryPageSchema = PageResponseSchema(BookSummarySchema);
+const SeriesSummaryPageSchema = PageResponseSchema(SeriesSummarySchema);
+const AuthorSummaryPageSchema = PageResponseSchema(AuthorSummarySchema);
+const NotebookBookSummaryPageSchema = PageResponseSchema(NotebookBookSummarySchema);
+const NotebookEntryPageSchema = PageResponseSchema(NotebookEntrySchema);
 
 // ---------------------------------------------------------------------------
 // HTTP error
@@ -127,6 +136,9 @@ export class BookLoreClient {
   private refreshToken: string;
   private refreshing: Promise<void> | null = null;
 
+  // P3-E: Static Content-Type header — avoids constructing a new object on every request
+  private readonly JSON_HEADERS = { "Content-Type": "application/json" } as const;
+
   constructor(config: BookLoreConfig) {
     this.baseUrl = config.baseUrl;
     if (config.token) {
@@ -156,9 +168,9 @@ export class BookLoreClient {
     const url = buildUrl(this.baseUrl, "/api/v1/auth/login");
     const response = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      headers: { ...this.JSON_HEADERS, Accept: "application/json" },
       body: JSON.stringify({ username, password }),
-      signal: AbortSignal.timeout(30_000),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
     if (!response.ok) {
       const text = await response.text().catch(() => response.statusText);
@@ -166,7 +178,7 @@ export class BookLoreClient {
       throw new BookLoreApiError(response.status, "/api/v1/auth/login", safeText);
     }
     const json: unknown = await response.json();
-    const data = LoginResponseSchema.parse(json);
+    const data = AuthTokenResponseSchema.parse(json);
     this.accessToken = data.accessToken;
     this.refreshToken = data.refreshToken;
     process.stderr.write("BookLore: logged in with username/password\n");
@@ -187,9 +199,9 @@ export class BookLoreClient {
     const url = buildUrl(this.baseUrl, "/api/v1/auth/refresh-token");
     const response = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      headers: { ...this.JSON_HEADERS, Accept: "application/json" },
       body: JSON.stringify({ token: this.refreshToken }),
-      signal: AbortSignal.timeout(30_000),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
     if (!response.ok) {
       // Clear stale tokens and attempt re-login if credentials are available
@@ -204,7 +216,7 @@ export class BookLoreClient {
       throw new BookLoreApiError(response.status, "/api/v1/auth/refresh-token", safeText);
     }
     const json: unknown = await response.json();
-    const data = RefreshResponseSchema.parse(json);
+    const data = AuthTokenResponseSchema.parse(json);
     this.accessToken = data.accessToken;
     this.refreshToken = data.refreshToken;
     process.stderr.write("BookLore: access token refreshed\n");
@@ -213,7 +225,7 @@ export class BookLoreClient {
   private authHeaders(): Record<string, string> {
     return {
       Authorization: `Bearer ${this.accessToken}`,
-      "Content-Type": "application/json",
+      ...this.JSON_HEADERS,
       Accept: "application/json",
     };
   }
@@ -228,10 +240,14 @@ export class BookLoreClient {
     params?: Params
   ): Promise<T> {
     const url = buildUrl(this.baseUrl, path, params);
-    const response = await fetch(url, { headers: this.authHeaders(), signal: AbortSignal.timeout(30_000) });
+    const response = await fetch(url, { headers: this.authHeaders(), signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
     if (response.status === 401 && this.credentials !== null) {
       await this.refreshAccessToken();
-      const retried = await fetch(url, { headers: this.authHeaders(), signal: AbortSignal.timeout(30_000) });
+      const retried = await fetch(url, { headers: this.authHeaders(), signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
+      // P3-C: Warn if the retry is still 401 — likely a token/permissions issue
+      if (retried.status === 401) {
+        process.stderr.write("[booklore-mcp] Warning: request still 401 after token refresh\n");
+      }
       return this.parseResponse(retried, path, schema);
     }
     return this.parseResponse(response, path, schema);
@@ -242,21 +258,27 @@ export class BookLoreClient {
     schema: z.ZodType<T>,
     body: unknown
   ): Promise<T> {
+    // P3-J: Hoist stringify before conditional so it is computed exactly once
+    const bodyStr = JSON.stringify(body);
     const url = buildUrl(this.baseUrl, path);
     const response = await fetch(url, {
       method: "PUT",
       headers: this.authHeaders(),
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(30_000),
+      body: bodyStr,
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
     if (response.status === 401 && this.credentials !== null) {
       await this.refreshAccessToken();
       const retried = await fetch(url, {
         method: "PUT",
         headers: this.authHeaders(),
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(30_000),
+        body: bodyStr,
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       });
+      // P3-C: Warn if the retry is still 401 — likely a token/permissions issue
+      if (retried.status === 401) {
+        process.stderr.write("[booklore-mcp] Warning: request still 401 after token refresh\n");
+      }
       return this.parseResponse(retried, path, schema);
     }
     return this.parseResponse(response, path, schema);
@@ -297,7 +319,7 @@ export class BookLoreClient {
   }): Promise<PageResponse<BookSummary>> {
     return this.get(
       "/api/v1/app/books",
-      PageResponseSchema(BookSummarySchema),
+      BookSummaryPageSchema,
       params as Params
     );
   }
@@ -307,13 +329,14 @@ export class BookLoreClient {
   }
 
   async updateBookRating(bookId: number, rating: number): Promise<void> {
-    const body = UpdateRatingRequestSchema.parse({ rating });
-    await this.put(`/api/v1/app/books/${bookId}/rating`, z.unknown(), body);
+    // P2-B: UpdateRatingRequestSchema.parse() removed — body is passed directly to put()
+    // which forwards it to JSON.stringify; Zod validation is not needed for a simple object literal
+    await this.put(`/api/v1/app/books/${bookId}/rating`, z.unknown(), { rating });
   }
 
   async updateBookStatus(bookId: number, status: ReadStatus): Promise<void> {
-    const body = UpdateStatusRequestSchema.parse({ status });
-    await this.put(`/api/v1/app/books/${bookId}/status`, z.unknown(), body);
+    // P2-B: UpdateStatusRequestSchema.parse() removed — body is passed directly to put()
+    await this.put(`/api/v1/app/books/${bookId}/status`, z.unknown(), { status });
   }
 
   async getContinueReading(limit?: number): Promise<BookSummary[]> {
@@ -361,7 +384,7 @@ export class BookLoreClient {
   ): Promise<PageResponse<BookSummary>> {
     return this.get(
       `/api/v1/app/shelves/magic/${magicShelfId}/books`,
-      PageResponseSchema(BookSummarySchema),
+      BookSummaryPageSchema,
       params as Params
     );
   }
@@ -381,7 +404,7 @@ export class BookLoreClient {
   }): Promise<PageResponse<SeriesSummary>> {
     return this.get(
       "/api/v1/app/series",
-      PageResponseSchema(SeriesSummarySchema),
+      SeriesSummaryPageSchema,
       params as Params
     );
   }
@@ -398,7 +421,7 @@ export class BookLoreClient {
   ): Promise<PageResponse<BookSummary>> {
     return this.get(
       `/api/v1/app/series/${encodeURIComponent(seriesName)}/books`,
-      PageResponseSchema(BookSummarySchema),
+      BookSummaryPageSchema,
       params as Params
     );
   }
@@ -418,7 +441,7 @@ export class BookLoreClient {
   }): Promise<PageResponse<AuthorSummary>> {
     return this.get(
       "/api/v1/app/authors",
-      PageResponseSchema(AuthorSummarySchema),
+      AuthorSummaryPageSchema,
       params as Params
     );
   }
@@ -438,7 +461,7 @@ export class BookLoreClient {
   }): Promise<PageResponse<NotebookBookSummary>> {
     return this.get(
       "/api/v1/app/notebook/books",
-      PageResponseSchema(NotebookBookSummarySchema),
+      NotebookBookSummaryPageSchema,
       params as Params
     );
   }
@@ -454,7 +477,7 @@ export class BookLoreClient {
   ): Promise<PageResponse<NotebookEntry>> {
     return this.get(
       `/api/v1/app/notebook/books/${bookId}/entries`,
-      PageResponseSchema(NotebookEntrySchema),
+      NotebookEntryPageSchema,
       params as Params
     );
   }

@@ -3,9 +3,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { loadConfigFromEnv, BookLoreClient, BookLoreConfig } from "./client.js";
 import { registerAllTools } from "./tools/index.js";
 import { registerMetaTool } from "./tools/meta.js";
-import { createRequire } from "module";
-const _require = createRequire(import.meta.url);
-const { version: SERVER_VERSION } = _require("../package.json") as { version: string };
+const SERVER_VERSION = "1.0.2";
 const SERVER_NAME = "booklore-mcp";
 
 function createServer(): McpServer {

@@ -1,7 +1,9 @@
 import { McpServer, RegisteredTool } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { BookLoreClient } from "../client.js";
-import { formatBookSummary, formatPageInfo } from "./format.js";
+import { formatPageInfo, formatBookPage } from "./format.js";
+import { wrapToolHandler } from "./errors.js";
+import { PaginationSchema, SortSchema } from "./schemas.js";
 
 // ---------------------------------------------------------------------------
 // Tool registration
@@ -26,19 +28,22 @@ function registerListSeries(server: McpServer, client: BookLoreClient): Register
         "List or search book series in your BookLore library. " +
         "Shows each series with book count, reading progress, and authors.",
       inputSchema: z.object({
+        ...PaginationSchema.shape,
+        ...SortSchema.shape,
+        // P3-H: narrow sort to known valid values for the series endpoint
+        sort: z
+          .enum(["seriesName", "latestAddedOn"])
+          .optional()
+          .describe("Sort field: seriesName or latestAddedOn"),
         search: z.string().optional().describe("Search by series name"),
         libraryId: z.number().int().positive().optional().describe("Filter by library ID"),
         status: z
           .enum(["in-progress"])
           .optional()
           .describe("Pass 'in-progress' to show only series you are currently reading"),
-        sort: z.string().optional().describe("Sort field (e.g. 'seriesName', 'latestAddedOn')"),
-        dir: z.enum(["asc", "desc"]).optional().describe("Sort direction: asc or desc"),
-        page: z.number().int().min(0).optional().default(0).describe("Page number (0-indexed)"),
-        size: z.number().int().min(1).max(100).optional().default(20).describe("Page size (1–100)"),
       }),
     },
-    async ({ search, libraryId, status, sort, dir, page, size }) => {
+    wrapToolHandler(async ({ search, libraryId, status, sort, dir, page, size }) => {
       const result = await client.listSeries({ search, libraryId, status, sort, dir, page, size });
 
       if (result.content.length === 0) {
@@ -54,7 +59,7 @@ function registerListSeries(server: McpServer, client: BookLoreClient): Register
 
       const lines = [formatPageInfo(result, "series"), "", ...seriesLines];
       return { content: [{ type: "text", text: lines.join("\n") }] };
-    }
+    })
   );
 }
 
@@ -68,25 +73,26 @@ function registerGetSeriesBooks(server: McpServer, client: BookLoreClient): Regi
     {
       description: "Get all books in a specific series, ordered by series number.",
       inputSchema: z.object({
-        seriesName: z.string().describe("The exact series name (use list_series to find names)"),
+        ...PaginationSchema.shape,
+        ...SortSchema.shape,
+        // P2-C: seriesName is required — add .min(1) to reject empty strings
+        seriesName: z.string().min(1).describe("The exact series name (use list_series to find names)"),
         libraryId: z.number().int().positive().optional().describe("Filter by library ID"),
-        sort: z.string().optional().describe("Sort field (default: series number)"),
-        dir: z.enum(["asc", "desc"]).optional().describe("Sort direction: asc or desc"),
-        page: z.number().int().min(0).optional().default(0).describe("Page number (0-indexed)"),
+        // size override: larger default for series (most series fit in one page)
         size: z.number().int().min(1).max(100).optional().default(50).describe("Page size (1–100)"),
       }),
     },
-    async ({ seriesName, libraryId, sort, dir, page, size }) => {
+    wrapToolHandler(async ({ seriesName, libraryId, sort, dir, page, size }) => {
       const result = await client.getSeriesBooks(seriesName, { libraryId, sort, dir, page, size });
 
       const lines = [
         `Series: "${seriesName}"`,
         formatPageInfo(result, "book"),
         "",
-        ...result.content.map(formatBookSummary),
+        ...result.content.map((book) => formatBookPage(book)),
       ];
 
       return { content: [{ type: "text", text: lines.join("\n") }] };
-    }
+    })
   );
 }

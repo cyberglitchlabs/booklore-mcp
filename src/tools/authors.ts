@@ -1,7 +1,9 @@
 import { McpServer, RegisteredTool } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { BookLoreClient } from "../client.js";
-import { formatBookSummary, formatPageInfo } from "./format.js";
+import { formatPageInfo, formatBookPage } from "./format.js";
+import { wrapToolHandler } from "./errors.js";
+import { PaginationSchema, SortSchema } from "./schemas.js";
 
 // ---------------------------------------------------------------------------
 // Tool registration
@@ -25,16 +27,19 @@ function registerListAuthors(server: McpServer, client: BookLoreClient): Registe
     {
       description: "List or search authors in your BookLore library.",
       inputSchema: z.object({
+        ...PaginationSchema.shape,
+        ...SortSchema.shape,
+        // P3-H: narrow sort to known valid values for the authors endpoint
+        sort: z
+          .enum(["name", "bookCount"])
+          .optional()
+          .describe("Sort field: name or bookCount"),
         search: z.string().optional().describe("Search by author name"),
         libraryId: z.number().int().positive().optional().describe("Filter by library ID"),
         hasPhoto: z.boolean().optional().describe("Filter to authors with profile photos only"),
-        sort: z.string().optional().describe("Sort field (e.g. 'name', 'bookCount')"),
-        dir: z.enum(["asc", "desc"]).optional().describe("Sort direction: asc or desc"),
-        page: z.number().int().min(0).optional().default(0).describe("Page number (0-indexed)"),
-        size: z.number().int().min(1).max(100).optional().default(20).describe("Page size (1–100)"),
       }),
     },
-    async ({ search, libraryId, hasPhoto, sort, dir, page, size }) => {
+    wrapToolHandler(async ({ search, libraryId, hasPhoto, sort, dir, page, size }) => {
       const result = await client.listAuthors({ search, libraryId, hasPhoto, sort, dir, page, size });
 
       if (result.content.length === 0) {
@@ -48,7 +53,7 @@ function registerListAuthors(server: McpServer, client: BookLoreClient): Registe
 
       const lines = [formatPageInfo(result, "author"), "", ...authorLines];
       return { content: [{ type: "text", text: lines.join("\n") }] };
-    }
+    })
   );
 }
 
@@ -65,7 +70,7 @@ function registerGetAuthor(server: McpServer, client: BookLoreClient): Registere
         authorId: z.number().int().positive().describe("The author ID (use list_authors to find IDs)"),
       }),
     },
-    async ({ authorId }) => {
+    wrapToolHandler(async ({ authorId }) => {
       const author = await client.getAuthor(authorId);
 
       const lines = [
@@ -82,7 +87,7 @@ function registerGetAuthor(server: McpServer, client: BookLoreClient): Registere
       }
 
       return { content: [{ type: "text", text: lines.join("\n") }] };
-    }
+    })
   );
 }
 
@@ -96,25 +101,31 @@ function registerGetAuthorBooks(server: McpServer, client: BookLoreClient): Regi
     {
       description: "Get all books by a specific author.",
       inputSchema: z.object({
-        authors: z.string().describe("Author name to filter by (use list_authors to find exact names)"),
+        ...PaginationSchema.shape,
+        ...SortSchema.shape,
+        // P2-C: authors is required — add .min(1) to reject empty strings
+        authors: z.string().min(1).describe("Author name to filter by (use list_authors to find exact names)"),
         libraryId: z.number().int().positive().optional().describe("Filter by library ID"),
-        sort: z.string().optional().describe("Sort field (e.g. 'title', 'addedOn')"),
-        dir: z.enum(["asc", "desc"]).optional().describe("Sort direction: asc or desc"),
-        page: z.number().int().min(0).optional().default(0).describe("Page number (0-indexed)"),
+        // P3-H: narrow sort to known valid values for the books endpoint
+        sort: z
+          .enum(["title", "addedOn", "lastReadTime", "personalRating"])
+          .optional()
+          .describe("Sort field: title, addedOn, lastReadTime, or personalRating"),
+        // size override: larger default for author book lists
         size: z.number().int().min(1).max(100).optional().default(50).describe("Page size (1–100)"),
       }),
     },
-    async ({ authors, libraryId, sort, dir, page, size }) => {
+    wrapToolHandler(async ({ authors, libraryId, sort, dir, page, size }) => {
       const result = await client.listBooks({ authors, libraryId, sort, dir, page, size });
 
       const lines = [
         `Books by "${authors}":`,
         formatPageInfo(result, "book"),
         "",
-        ...result.content.map(formatBookSummary),
+        ...result.content.map((book) => formatBookPage(book)),
       ];
 
       return { content: [{ type: "text", text: lines.join("\n") }] };
-    }
+    })
   );
 }

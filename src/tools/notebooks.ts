@@ -2,6 +2,8 @@ import { McpServer, RegisteredTool } from "@modelcontextprotocol/sdk/server/mcp.
 import { z } from "zod";
 import { BookLoreClient } from "../client.js";
 import { formatPageInfo } from "./format.js";
+import { wrapToolHandler } from "./errors.js";
+import { PaginationSchema } from "./schemas.js";
 
 // ---------------------------------------------------------------------------
 // Tool registration
@@ -26,12 +28,11 @@ function registerListNotebookBooks(server: McpServer, client: BookLoreClient): R
         "List all books that have highlights or notes in your BookLore notebook. " +
         "Use get_book_notebook_entries to read the actual entries for a specific book.",
       inputSchema: z.object({
+        ...PaginationSchema.shape,
         search: z.string().optional().describe("Search by book title or author"),
-        page: z.number().int().min(0).optional().default(0).describe("Page number (0-indexed)"),
-        size: z.number().int().min(1).max(100).optional().default(20).describe("Page size (1–100)"),
       }),
     },
-    async ({ search, page, size }) => {
+    wrapToolHandler(async ({ search, page, size }) => {
       const result = await client.listNotebookBooks({ search, page, size });
 
       if (result.content.length === 0) {
@@ -45,7 +46,7 @@ function registerListNotebookBooks(server: McpServer, client: BookLoreClient): R
 
       const lines = [formatPageInfo(result, "book with notes"), "", ...bookLines];
       return { content: [{ type: "text", text: lines.join("\n") }] };
-    }
+    })
   );
 }
 
@@ -59,18 +60,20 @@ function registerGetBookNotebookEntries(server: McpServer, client: BookLoreClien
     {
       description: "Get all highlights and notes for a specific book from the BookLore notebook.",
       inputSchema: z.object({
+        ...PaginationSchema.shape,
+        // size override: larger default for notebook entries
+        size: z.number().int().min(1).max(100).optional().default(50).describe("Page size (1–100)"),
         bookId: z.number().int().positive().describe("The BookLore book ID"),
         search: z.string().optional().describe("Search within entries by text"),
+        // P2-G + P3-H: narrow sort to the exact enum the client/API accepts
         sort: z
           .enum(["date_desc", "date_asc"])
           .optional()
           .default("date_desc")
           .describe("Sort order: date_desc (newest first) or date_asc (oldest first)"),
-        page: z.number().int().min(0).optional().default(0).describe("Page number (0-indexed)"),
-        size: z.number().int().min(1).max(100).optional().default(50).describe("Page size (1–100)"),
       }),
     },
-    async ({ bookId, search, sort, page, size }) => {
+    wrapToolHandler(async ({ bookId, search, sort, page, size }) => {
       const result = await client.getBookNotebookEntries(bookId, { search, sort, page, size });
 
       if (result.content.length === 0) {
@@ -98,6 +101,6 @@ function registerGetBookNotebookEntries(server: McpServer, client: BookLoreClien
       ];
 
       return { content: [{ type: "text", text: lines.join("\n") }] };
-    }
+    })
   );
 }

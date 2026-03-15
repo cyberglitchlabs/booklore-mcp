@@ -2,6 +2,8 @@ import { McpServer, RegisteredTool } from "@modelcontextprotocol/sdk/server/mcp.
 import { z } from "zod";
 import { BookLoreClient } from "../client.js";
 import { formatBookSummary, formatPageInfo, pluralize } from "./format.js";
+import { wrapToolHandler } from "./errors.js";
+import { PaginationSchema, SortSchema } from "./schemas.js";
 
 // ---------------------------------------------------------------------------
 // Tool registration
@@ -25,7 +27,7 @@ function registerListLibraries(server: McpServer, client: BookLoreClient): Regis
       description: "List all libraries in your BookLore instance, including book counts and allowed formats.",
       inputSchema: z.object({}),
     },
-    async () => {
+    wrapToolHandler(async () => {
       const libraries = await client.listLibraries();
       if (libraries.length === 0) {
         return { content: [{ type: "text", text: "No libraries found." }] };
@@ -37,7 +39,7 @@ function registerListLibraries(server: McpServer, client: BookLoreClient): Regis
       });
 
       return { content: [{ type: "text", text: [`${libraries.length} ${pluralize(libraries.length, "library", "libraries")}:`, "", ...lines].join("\n") }] };
-    }
+    })
   );
 }
 
@@ -51,17 +53,17 @@ function registerGetLibraryBooks(server: McpServer, client: BookLoreClient): Reg
     {
       description: "Browse books within a specific library with optional sorting and pagination.",
       inputSchema: z.object({
-        libraryId: z.number().int().positive().describe("The library ID (use list_libraries to find IDs)"),
+        ...PaginationSchema.shape,
+        ...SortSchema.shape,
+        // P3-H: narrow sort to known valid values for the books endpoint
         sort: z
-          .string()
+          .enum(["title", "addedOn", "lastReadTime", "personalRating"])
           .optional()
-          .describe("Sort field (e.g. 'title', 'addedOn', 'lastReadTime')"),
-        dir: z.enum(["asc", "desc"]).optional().describe("Sort direction: asc or desc"),
-        page: z.number().int().min(0).optional().default(0).describe("Page number (0-indexed)"),
-        size: z.number().int().min(1).max(100).optional().default(20).describe("Page size (1–100)"),
+          .describe("Sort field: title, addedOn, lastReadTime, or personalRating"),
+        libraryId: z.number().int().positive().describe("The library ID (use list_libraries to find IDs)"),
       }),
     },
-    async ({ libraryId, sort, dir, page, size }) => {
+    wrapToolHandler(async ({ libraryId, sort, dir, page, size }) => {
       const result = await client.listBooks({ libraryId, sort, dir, page, size });
 
       const lines = [
@@ -71,6 +73,6 @@ function registerGetLibraryBooks(server: McpServer, client: BookLoreClient): Reg
       ];
 
       return { content: [{ type: "text", text: lines.join("\n") }] };
-    }
+    })
   );
 }

@@ -19,7 +19,7 @@ export function registerMetaTool(server: McpServer, registry: ToolRegistry): voi
       }),
     },
     async ({ category, action }) => {
-      const tools = registry[category as CategoryName];
+      const tools = registry[category];
       if (action === "enable") {
         tools.forEach((t) => t.enable());
         return {

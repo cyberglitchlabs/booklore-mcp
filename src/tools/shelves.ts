@@ -2,6 +2,8 @@ import { McpServer, RegisteredTool } from "@modelcontextprotocol/sdk/server/mcp.
 import { z } from "zod";
 import { BookLoreClient } from "../client.js";
 import { formatBookSummary, formatPageInfo, pluralize } from "./format.js";
+import { wrapToolHandler } from "./errors.js";
+import { PaginationSchema } from "./schemas.js";
 
 // ---------------------------------------------------------------------------
 // Tool registration
@@ -26,7 +28,7 @@ function registerListShelves(server: McpServer, client: BookLoreClient): Registe
       description: "List all user-created shelves in BookLore, including book counts.",
       inputSchema: z.object({}),
     },
-    async () => {
+    wrapToolHandler(async () => {
       const shelves = await client.listShelves();
       if (shelves.length === 0) {
         return { content: [{ type: "text", text: "No shelves found." }] };
@@ -40,7 +42,7 @@ function registerListShelves(server: McpServer, client: BookLoreClient): Registe
       return {
         content: [{ type: "text", text: [`${shelves.length} ${pluralize(shelves.length, "shelf", "shelves")}:`, "", ...lines].join("\n") }],
       };
-    }
+    })
   );
 }
 
@@ -58,7 +60,7 @@ function registerListMagicShelves(server: McpServer, client: BookLoreClient): Re
         "Use get_magic_shelf_books to browse their contents.",
       inputSchema: z.object({}),
     },
-    async () => {
+    wrapToolHandler(async () => {
       const shelves = await client.listMagicShelves();
       if (shelves.length === 0) {
         return { content: [{ type: "text", text: "No magic shelves found." }] };
@@ -72,7 +74,7 @@ function registerListMagicShelves(server: McpServer, client: BookLoreClient): Re
       return {
         content: [{ type: "text", text: [`${shelves.length} magic ${pluralize(shelves.length, "shelf", "shelves")}:`, "", ...lines].join("\n") }],
       };
-    }
+    })
   );
 }
 
@@ -86,12 +88,11 @@ function registerGetMagicShelfBooks(server: McpServer, client: BookLoreClient): 
     {
       description: "Get books from a specific magic/smart shelf by its ID.",
       inputSchema: z.object({
+        ...PaginationSchema.shape,
         magicShelfId: z.number().int().positive().describe("The magic shelf ID (use list_magic_shelves to find IDs)"),
-        page: z.number().int().min(0).optional().default(0).describe("Page number (0-indexed)"),
-        size: z.number().int().min(1).max(100).optional().default(20).describe("Page size (1–100)"),
       }),
     },
-    async ({ magicShelfId, page, size }) => {
+    wrapToolHandler(async ({ magicShelfId, page, size }) => {
       const result = await client.getMagicShelfBooks(magicShelfId, { page, size });
 
       const lines = [
@@ -101,6 +102,6 @@ function registerGetMagicShelfBooks(server: McpServer, client: BookLoreClient): 
       ];
 
       return { content: [{ type: "text", text: lines.join("\n") }] };
-    }
+    })
   );
 }
