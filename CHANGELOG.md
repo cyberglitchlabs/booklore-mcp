@@ -1,3 +1,11 @@
+## [1.0.2](https://github.com/cyberglitchlabs/booklore-mcp/compare/v1.0.1...v1.0.2) (2026-03-15)
+
+
+### Bug Fixes
+
+* code review fixes across client, types, and all tool files ([8c5930c](https://github.com/cyberglitchlabs/booklore-mcp/commit/8c5930c9fe9d403f6ea5c460324c4057336ca1e7))
+* resolve lint errors and update CI action versions to Node.js 24-compatible ([fbad1a4](https://github.com/cyberglitchlabs/booklore-mcp/commit/fbad1a45f33eec1fcc3a021a2085f5cc20cfab42))
+
 ## [1.0.1](https://github.com/cyberglitchlabs/booklore-mcp/compare/v1.0.0...v1.0.1) (2026-03-15)
 
 # 1.0.0 (2026-03-15)
