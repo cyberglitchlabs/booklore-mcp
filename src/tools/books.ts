@@ -4,7 +4,7 @@ import { BookLoreClient } from "../client.js";
 import { ReadStatusSchema, BookFileTypeSchema } from "../types.js";
 import { formatBookSummary, formatBookDetail, formatPageInfo, formatBookPage } from "./format.js";
 import { wrapToolHandler } from "./errors.js";
-import { PaginationSchema, SortSchema } from "./schemas.js";
+import { PaginationSchema, SortSchema, BookSortSchema } from "./schemas.js";
 
 // ---------------------------------------------------------------------------
 // Tool registration
@@ -36,11 +36,7 @@ function registerSearchBooks(server: McpServer, client: BookLoreClient): Registe
       inputSchema: z.object({
         ...PaginationSchema.shape,
         ...SortSchema.shape,
-        // P3-H: narrow sort to known valid values for the books endpoint
-        sort: z
-          .enum(["title", "addedOn", "lastReadTime", "personalRating"])
-          .optional()
-          .describe("Sort field: title, addedOn, lastReadTime, or personalRating"),
+        sort: BookSortSchema,
         search: z.string().optional().describe("Full-text search across title, author, and description"),
         libraryId: z.number().int().positive().optional().describe("Filter by library ID"),
         shelfId: z.number().int().positive().optional().describe("Filter by shelf ID"),

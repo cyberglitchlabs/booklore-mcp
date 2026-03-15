@@ -3,7 +3,7 @@ import { z } from "zod";
 import { BookLoreClient } from "../client.js";
 import { formatPageInfo, formatBookPage } from "./format.js";
 import { wrapToolHandler } from "./errors.js";
-import { PaginationSchema, SortSchema } from "./schemas.js";
+import { PaginationSchema, SortSchema, SeriesSortSchema } from "./schemas.js";
 
 // ---------------------------------------------------------------------------
 // Tool registration
@@ -30,11 +30,7 @@ function registerListSeries(server: McpServer, client: BookLoreClient): Register
       inputSchema: z.object({
         ...PaginationSchema.shape,
         ...SortSchema.shape,
-        // P3-H: narrow sort to known valid values for the series endpoint
-        sort: z
-          .enum(["seriesName", "latestAddedOn"])
-          .optional()
-          .describe("Sort field: seriesName or latestAddedOn"),
+        sort: SeriesSortSchema,
         search: z.string().optional().describe("Search by series name"),
         libraryId: z.number().int().positive().optional().describe("Filter by library ID"),
         status: z

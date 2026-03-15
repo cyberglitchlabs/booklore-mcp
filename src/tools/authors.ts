@@ -3,7 +3,7 @@ import { z } from "zod";
 import { BookLoreClient } from "../client.js";
 import { formatPageInfo, formatBookPage } from "./format.js";
 import { wrapToolHandler } from "./errors.js";
-import { PaginationSchema, SortSchema } from "./schemas.js";
+import { PaginationSchema, SortSchema, AuthorSortSchema, BookSortSchema } from "./schemas.js";
 
 // ---------------------------------------------------------------------------
 // Tool registration
@@ -29,11 +29,7 @@ function registerListAuthors(server: McpServer, client: BookLoreClient): Registe
       inputSchema: z.object({
         ...PaginationSchema.shape,
         ...SortSchema.shape,
-        // P3-H: narrow sort to known valid values for the authors endpoint
-        sort: z
-          .enum(["name", "bookCount"])
-          .optional()
-          .describe("Sort field: name or bookCount"),
+        sort: AuthorSortSchema,
         search: z.string().optional().describe("Search by author name"),
         libraryId: z.number().int().positive().optional().describe("Filter by library ID"),
         hasPhoto: z.boolean().optional().describe("Filter to authors with profile photos only"),
@@ -106,11 +102,7 @@ function registerGetAuthorBooks(server: McpServer, client: BookLoreClient): Regi
         // P2-C: authors is required — add .min(1) to reject empty strings
         authors: z.string().min(1).describe("Author name to filter by (use list_authors to find exact names)"),
         libraryId: z.number().int().positive().optional().describe("Filter by library ID"),
-        // P3-H: narrow sort to known valid values for the books endpoint
-        sort: z
-          .enum(["title", "addedOn", "lastReadTime", "personalRating"])
-          .optional()
-          .describe("Sort field: title, addedOn, lastReadTime, or personalRating"),
+        sort: BookSortSchema,
         // size override: larger default for author book lists
         size: z.number().int().min(1).max(100).optional().default(50).describe("Page size (1–100)"),
       }),

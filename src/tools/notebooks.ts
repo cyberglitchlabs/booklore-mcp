@@ -1,7 +1,7 @@
 import { McpServer, RegisteredTool } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { BookLoreClient } from "../client.js";
-import { formatPageInfo } from "./format.js";
+import { formatPageInfo, formatNotebookEntry } from "./format.js";
 import { wrapToolHandler } from "./errors.js";
 import { PaginationSchema } from "./schemas.js";
 
@@ -82,17 +82,7 @@ function registerGetBookNotebookEntries(server: McpServer, client: BookLoreClien
         };
       }
 
-      const entryLines = result.content.map((entry) => {
-        const chapter = entry.chapterTitle ? ` [${entry.chapterTitle}]` : "";
-        const date = entry.createdAt ? ` (${new Date(entry.createdAt).toISOString().slice(0, 10)})` : "";
-        const typeLabel = entry.type === "HIGHLIGHT" ? "📌" : "📝";
-
-        const parts = [`${typeLabel} ${entry.type}${chapter}${date}`];
-        if (entry.text) parts.push(`  "${entry.text}"`);
-        if (entry.note) parts.push(`  Note: ${entry.note}`);
-
-        return parts.join("\n");
-      });
+      const entryLines = result.content.map(formatNotebookEntry);
 
       const lines = [
         formatPageInfo(result, "entry"),

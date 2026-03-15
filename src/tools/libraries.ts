@@ -1,9 +1,9 @@
 import { McpServer, RegisteredTool } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { BookLoreClient } from "../client.js";
-import { formatBookSummary, formatPageInfo, pluralize } from "./format.js";
+import { formatBookPage, formatPageInfo, pluralize } from "./format.js";
 import { wrapToolHandler } from "./errors.js";
-import { PaginationSchema, SortSchema } from "./schemas.js";
+import { PaginationSchema, SortSchema, BookSortSchema } from "./schemas.js";
 
 // ---------------------------------------------------------------------------
 // Tool registration
@@ -55,11 +55,7 @@ function registerGetLibraryBooks(server: McpServer, client: BookLoreClient): Reg
       inputSchema: z.object({
         ...PaginationSchema.shape,
         ...SortSchema.shape,
-        // P3-H: narrow sort to known valid values for the books endpoint
-        sort: z
-          .enum(["title", "addedOn", "lastReadTime", "personalRating"])
-          .optional()
-          .describe("Sort field: title, addedOn, lastReadTime, or personalRating"),
+        sort: BookSortSchema,
         libraryId: z.number().int().positive().describe("The library ID (use list_libraries to find IDs)"),
       }),
     },
@@ -69,7 +65,7 @@ function registerGetLibraryBooks(server: McpServer, client: BookLoreClient): Reg
       const lines = [
         formatPageInfo(result, "book"),
         "",
-        ...result.content.map(formatBookSummary),
+        ...result.content.map(formatBookPage),
       ];
 
       return { content: [{ type: "text", text: lines.join("\n") }] };

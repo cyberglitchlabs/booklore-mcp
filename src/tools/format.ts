@@ -1,4 +1,4 @@
-import { BookSummary, BookDetail, PageResponse } from "../types.js";
+import { BookSummary, BookDetail, PageResponse, NotebookEntry } from "../types.js";
 
 // ---------------------------------------------------------------------------
 // Page info summary line
@@ -151,4 +151,22 @@ export function formatBookDetail(book: BookDetail): string {
 
 export function pluralize(count: number, singular: string, plural?: string): string {
   return count === 1 ? singular : (plural ?? `${singular}s`);
+}
+
+// ---------------------------------------------------------------------------
+// Notebook entry formatter
+// ---------------------------------------------------------------------------
+
+export function formatNotebookEntry(entry: NotebookEntry): string {
+  const chapter = entry.chapterTitle ? ` [${entry.chapterTitle}]` : "";
+  const date = entry.createdAt
+    ? ` (${new Date(entry.createdAt).toISOString().slice(0, 10)})`
+    : "";
+  const typeLabel = entry.type === "HIGHLIGHT" ? "📌" : "📝";
+
+  const parts = [`${typeLabel} ${entry.type}${chapter}${date}`];
+  if (entry.text) parts.push(`  "${entry.text}"`);
+  if (entry.note) parts.push(`  Note: ${entry.note}`);
+
+  return parts.join("\n");
 }

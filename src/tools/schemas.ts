@@ -49,3 +49,25 @@ export const SortSchema = z.object({
     .optional()
     .describe("Sort direction: asc or desc"),
 });
+
+// ---------------------------------------------------------------------------
+// Per-endpoint sort enums
+// ---------------------------------------------------------------------------
+
+/** Valid sort fields for the books endpoint */
+export const BookSortSchema = z
+  .enum(["title", "addedOn", "lastReadTime", "personalRating"])
+  .optional()
+  .describe("Sort field: title, addedOn, lastReadTime, or personalRating");
+
+/** Valid sort fields for the series endpoint */
+export const SeriesSortSchema = z
+  .enum(["seriesName", "latestAddedOn"])
+  .optional()
+  .describe("Sort field: seriesName or latestAddedOn");
+
+/** Valid sort fields for the authors endpoint */
+export const AuthorSortSchema = z
+  .enum(["name", "bookCount"])
+  .optional()
+  .describe("Sort field: name or bookCount");

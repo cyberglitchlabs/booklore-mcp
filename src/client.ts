@@ -93,6 +93,18 @@ const NotebookBookSummaryPageSchema = PageResponseSchema(NotebookBookSummarySche
 const NotebookEntryPageSchema = PageResponseSchema(NotebookEntrySchema);
 
 // ---------------------------------------------------------------------------
+// Shared param types
+// ---------------------------------------------------------------------------
+
+/** Base params shared by all paginated API methods. */
+interface BasePaginatedParams {
+  page?: number;
+  size?: number;
+  sort?: string;
+  dir?: string;
+}
+
+// ---------------------------------------------------------------------------
 // HTTP error
 // ---------------------------------------------------------------------------
 
@@ -302,11 +314,7 @@ export class BookLoreClient {
   // Books
   // -------------------------------------------------------------------------
 
-  async listBooks(params?: {
-    page?: number;
-    size?: number;
-    sort?: string;
-    dir?: string;
+  async listBooks(params?: BasePaginatedParams & {
     libraryId?: number;
     shelfId?: number;
     status?: string;
@@ -380,7 +388,7 @@ export class BookLoreClient {
 
   async getMagicShelfBooks(
     magicShelfId: number,
-    params?: { page?: number; size?: number }
+    params?: Pick<BasePaginatedParams, 'page' | 'size'>
   ): Promise<PageResponse<BookSummary>> {
     return this.get(
       `/api/v1/app/shelves/magic/${magicShelfId}/books`,
@@ -393,11 +401,7 @@ export class BookLoreClient {
   // Series
   // -------------------------------------------------------------------------
 
-  async listSeries(params?: {
-    page?: number;
-    size?: number;
-    sort?: string;
-    dir?: string;
+  async listSeries(params?: BasePaginatedParams & {
     libraryId?: number;
     search?: string;
     status?: string;
@@ -411,13 +415,7 @@ export class BookLoreClient {
 
   async getSeriesBooks(
     seriesName: string,
-    params?: {
-      page?: number;
-      size?: number;
-      sort?: string;
-      dir?: string;
-      libraryId?: number;
-    }
+    params?: BasePaginatedParams & { libraryId?: number }
   ): Promise<PageResponse<BookSummary>> {
     return this.get(
       `/api/v1/app/series/${encodeURIComponent(seriesName)}/books`,
@@ -430,11 +428,7 @@ export class BookLoreClient {
   // Authors
   // -------------------------------------------------------------------------
 
-  async listAuthors(params?: {
-    page?: number;
-    size?: number;
-    sort?: string;
-    dir?: string;
+  async listAuthors(params?: BasePaginatedParams & {
     libraryId?: number;
     search?: string;
     hasPhoto?: boolean;
@@ -468,12 +462,7 @@ export class BookLoreClient {
 
   async getBookNotebookEntries(
     bookId: number,
-    params?: {
-      page?: number;
-      size?: number;
-      search?: string;
-      sort?: string;
-    }
+    params?: Pick<BasePaginatedParams, 'page' | 'size'> & { search?: string; sort?: string }
   ): Promise<PageResponse<NotebookEntry>> {
     return this.get(
       `/api/v1/app/notebook/books/${bookId}/entries`,
