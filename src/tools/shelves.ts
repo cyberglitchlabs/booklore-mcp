@@ -1,4 +1,4 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer, RegisteredTool } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { BookLoreClient } from "../client.js";
 import { formatBookSummary, formatPageInfo, pluralize } from "./format.js";
@@ -7,18 +7,20 @@ import { formatBookSummary, formatPageInfo, pluralize } from "./format.js";
 // Tool registration
 // ---------------------------------------------------------------------------
 
-export function registerShelfTools(server: McpServer, client: BookLoreClient): void {
-  registerListShelves(server, client);
-  registerListMagicShelves(server, client);
-  registerGetMagicShelfBooks(server, client);
+export function registerShelfTools(server: McpServer, client: BookLoreClient): RegisteredTool[] {
+  return [
+    registerListShelves(server, client),
+    registerListMagicShelves(server, client),
+    registerGetMagicShelfBooks(server, client),
+  ];
 }
 
 // ---------------------------------------------------------------------------
 // list_shelves
 // ---------------------------------------------------------------------------
 
-function registerListShelves(server: McpServer, client: BookLoreClient): void {
-  server.registerTool(
+function registerListShelves(server: McpServer, client: BookLoreClient): RegisteredTool {
+  return server.registerTool(
     "list_shelves",
     {
       description: "List all user-created shelves in BookLore, including book counts.",
@@ -46,8 +48,8 @@ function registerListShelves(server: McpServer, client: BookLoreClient): void {
 // list_magic_shelves
 // ---------------------------------------------------------------------------
 
-function registerListMagicShelves(server: McpServer, client: BookLoreClient): void {
-  server.registerTool(
+function registerListMagicShelves(server: McpServer, client: BookLoreClient): RegisteredTool {
+  return server.registerTool(
     "list_magic_shelves",
     {
       description:
@@ -78,8 +80,8 @@ function registerListMagicShelves(server: McpServer, client: BookLoreClient): vo
 // get_magic_shelf_books
 // ---------------------------------------------------------------------------
 
-function registerGetMagicShelfBooks(server: McpServer, client: BookLoreClient): void {
-  server.registerTool(
+function registerGetMagicShelfBooks(server: McpServer, client: BookLoreClient): RegisteredTool {
+  return server.registerTool(
     "get_magic_shelf_books",
     {
       description: "Get books from a specific magic/smart shelf by its ID.",

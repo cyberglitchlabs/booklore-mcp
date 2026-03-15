@@ -1,4 +1,4 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer, RegisteredTool } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { BookLoreClient } from "../client.js";
 import { formatBookSummary, formatPageInfo, pluralize } from "./format.js";
@@ -7,17 +7,19 @@ import { formatBookSummary, formatPageInfo, pluralize } from "./format.js";
 // Tool registration
 // ---------------------------------------------------------------------------
 
-export function registerLibraryTools(server: McpServer, client: BookLoreClient): void {
-  registerListLibraries(server, client);
-  registerGetLibraryBooks(server, client);
+export function registerLibraryTools(server: McpServer, client: BookLoreClient): RegisteredTool[] {
+  return [
+    registerListLibraries(server, client),
+    registerGetLibraryBooks(server, client),
+  ];
 }
 
 // ---------------------------------------------------------------------------
 // list_libraries
 // ---------------------------------------------------------------------------
 
-function registerListLibraries(server: McpServer, client: BookLoreClient): void {
-  server.registerTool(
+function registerListLibraries(server: McpServer, client: BookLoreClient): RegisteredTool {
+  return server.registerTool(
     "list_libraries",
     {
       description: "List all libraries in your BookLore instance, including book counts and allowed formats.",
@@ -43,8 +45,8 @@ function registerListLibraries(server: McpServer, client: BookLoreClient): void 
 // get_library_books
 // ---------------------------------------------------------------------------
 
-function registerGetLibraryBooks(server: McpServer, client: BookLoreClient): void {
-  server.registerTool(
+function registerGetLibraryBooks(server: McpServer, client: BookLoreClient): RegisteredTool {
+  return server.registerTool(
     "get_library_books",
     {
       description: "Browse books within a specific library with optional sorting and pagination.",

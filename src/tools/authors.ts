@@ -1,4 +1,4 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer, RegisteredTool } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { BookLoreClient } from "../client.js";
 import { formatBookSummary, formatPageInfo } from "./format.js";
@@ -7,18 +7,20 @@ import { formatBookSummary, formatPageInfo } from "./format.js";
 // Tool registration
 // ---------------------------------------------------------------------------
 
-export function registerAuthorTools(server: McpServer, client: BookLoreClient): void {
-  registerListAuthors(server, client);
-  registerGetAuthor(server, client);
-  registerGetAuthorBooks(server, client);
+export function registerAuthorTools(server: McpServer, client: BookLoreClient): RegisteredTool[] {
+  return [
+    registerListAuthors(server, client),
+    registerGetAuthor(server, client),
+    registerGetAuthorBooks(server, client),
+  ];
 }
 
 // ---------------------------------------------------------------------------
 // list_authors
 // ---------------------------------------------------------------------------
 
-function registerListAuthors(server: McpServer, client: BookLoreClient): void {
-  server.registerTool(
+function registerListAuthors(server: McpServer, client: BookLoreClient): RegisteredTool {
+  return server.registerTool(
     "list_authors",
     {
       description: "List or search authors in your BookLore library.",
@@ -54,8 +56,8 @@ function registerListAuthors(server: McpServer, client: BookLoreClient): void {
 // get_author
 // ---------------------------------------------------------------------------
 
-function registerGetAuthor(server: McpServer, client: BookLoreClient): void {
-  server.registerTool(
+function registerGetAuthor(server: McpServer, client: BookLoreClient): RegisteredTool {
+  return server.registerTool(
     "get_author",
     {
       description: "Get detailed information about a specific author by ID.",
@@ -88,8 +90,8 @@ function registerGetAuthor(server: McpServer, client: BookLoreClient): void {
 // get_author_books
 // ---------------------------------------------------------------------------
 
-function registerGetAuthorBooks(server: McpServer, client: BookLoreClient): void {
-  server.registerTool(
+function registerGetAuthorBooks(server: McpServer, client: BookLoreClient): RegisteredTool {
+  return server.registerTool(
     "get_author_books",
     {
       description: "Get all books by a specific author.",

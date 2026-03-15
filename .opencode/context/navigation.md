@@ -11,6 +11,7 @@
 ```
 .opencode/context/
 ├── core/                   # Universal standards & workflows
+├── domain/                 # Domain-specific research & reference findings
 ├── openagents-repo/        # OpenAgents Control repository work
 ├── development/            # Software development (all stacks)
 ├── ui/                     # Visual design & UX
@@ -40,6 +41,7 @@
 ## By Category
 
 **core/** - Standards, workflows, patterns → `core/navigation.md`
+**domain/** - Domain-specific research & reference findings → `domain/mcp-dynamic-tools.md`
 **openagents-repo/** - Repository-specific → `openagents-repo/navigation.md`
 **development/** - All development → `development/navigation.md`
 **ui/** - Design & UX → `ui/navigation.md`

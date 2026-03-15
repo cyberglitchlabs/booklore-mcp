@@ -1,4 +1,4 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer, RegisteredTool } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { BookLoreClient } from "../client.js";
 import { ReadStatusSchema, BookFileTypeSchema } from "../types.js";
@@ -8,21 +8,23 @@ import { formatBookSummary, formatBookDetail, formatPageInfo } from "./format.js
 // Tool registration
 // ---------------------------------------------------------------------------
 
-export function registerBookTools(server: McpServer, client: BookLoreClient): void {
-  registerSearchBooks(server, client);
-  registerGetBook(server, client);
-  registerUpdateBookRating(server, client);
-  registerUpdateBookStatus(server, client);
-  registerGetContinueReading(server, client);
-  registerGetRecentlyAdded(server, client);
+export function registerBookTools(server: McpServer, client: BookLoreClient): RegisteredTool[] {
+  return [
+    registerSearchBooks(server, client),
+    registerGetBook(server, client),
+    registerUpdateBookRating(server, client),
+    registerUpdateBookStatus(server, client),
+    registerGetContinueReading(server, client),
+    registerGetRecentlyAdded(server, client),
+  ];
 }
 
 // ---------------------------------------------------------------------------
 // search_books
 // ---------------------------------------------------------------------------
 
-function registerSearchBooks(server: McpServer, client: BookLoreClient): void {
-  server.registerTool(
+function registerSearchBooks(server: McpServer, client: BookLoreClient): RegisteredTool {
+  return server.registerTool(
     "search_books",
     {
       description:
@@ -70,8 +72,8 @@ function registerSearchBooks(server: McpServer, client: BookLoreClient): void {
 // get_book
 // ---------------------------------------------------------------------------
 
-function registerGetBook(server: McpServer, client: BookLoreClient): void {
-  server.registerTool(
+function registerGetBook(server: McpServer, client: BookLoreClient): RegisteredTool {
+  return server.registerTool(
     "get_book",
     {
       description:
@@ -92,8 +94,8 @@ function registerGetBook(server: McpServer, client: BookLoreClient): void {
 // update_book_rating
 // ---------------------------------------------------------------------------
 
-function registerUpdateBookRating(server: McpServer, client: BookLoreClient): void {
-  server.registerTool(
+function registerUpdateBookRating(server: McpServer, client: BookLoreClient): RegisteredTool {
+  return server.registerTool(
     "update_book_rating",
     {
       description: "Set a personal rating for a book (1–5 stars).",
@@ -115,8 +117,8 @@ function registerUpdateBookRating(server: McpServer, client: BookLoreClient): vo
 // update_book_status
 // ---------------------------------------------------------------------------
 
-function registerUpdateBookStatus(server: McpServer, client: BookLoreClient): void {
-  server.registerTool(
+function registerUpdateBookStatus(server: McpServer, client: BookLoreClient): RegisteredTool {
+  return server.registerTool(
     "update_book_status",
     {
       description: "Update the read status of a book.",
@@ -140,8 +142,8 @@ function registerUpdateBookStatus(server: McpServer, client: BookLoreClient): vo
 // get_continue_reading
 // ---------------------------------------------------------------------------
 
-function registerGetContinueReading(server: McpServer, client: BookLoreClient): void {
-  server.registerTool(
+function registerGetContinueReading(server: McpServer, client: BookLoreClient): RegisteredTool {
+  return server.registerTool(
     "get_continue_reading",
     {
       description: "Get books that are currently in progress / ready to continue reading.",
@@ -164,8 +166,8 @@ function registerGetContinueReading(server: McpServer, client: BookLoreClient): 
 // get_recently_added
 // ---------------------------------------------------------------------------
 
-function registerGetRecentlyAdded(server: McpServer, client: BookLoreClient): void {
-  server.registerTool(
+function registerGetRecentlyAdded(server: McpServer, client: BookLoreClient): RegisteredTool {
+  return server.registerTool(
     "get_recently_added",
     {
       description: "Get the most recently added books across all libraries.",

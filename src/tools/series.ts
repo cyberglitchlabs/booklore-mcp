@@ -1,4 +1,4 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer, RegisteredTool } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { BookLoreClient } from "../client.js";
 import { formatBookSummary, formatPageInfo } from "./format.js";
@@ -7,17 +7,19 @@ import { formatBookSummary, formatPageInfo } from "./format.js";
 // Tool registration
 // ---------------------------------------------------------------------------
 
-export function registerSeriesTools(server: McpServer, client: BookLoreClient): void {
-  registerListSeries(server, client);
-  registerGetSeriesBooks(server, client);
+export function registerSeriesTools(server: McpServer, client: BookLoreClient): RegisteredTool[] {
+  return [
+    registerListSeries(server, client),
+    registerGetSeriesBooks(server, client),
+  ];
 }
 
 // ---------------------------------------------------------------------------
 // list_series
 // ---------------------------------------------------------------------------
 
-function registerListSeries(server: McpServer, client: BookLoreClient): void {
-  server.registerTool(
+function registerListSeries(server: McpServer, client: BookLoreClient): RegisteredTool {
+  return server.registerTool(
     "list_series",
     {
       description:
@@ -60,8 +62,8 @@ function registerListSeries(server: McpServer, client: BookLoreClient): void {
 // get_series_books
 // ---------------------------------------------------------------------------
 
-function registerGetSeriesBooks(server: McpServer, client: BookLoreClient): void {
-  server.registerTool(
+function registerGetSeriesBooks(server: McpServer, client: BookLoreClient): RegisteredTool {
+  return server.registerTool(
     "get_series_books",
     {
       description: "Get all books in a specific series, ordered by series number.",

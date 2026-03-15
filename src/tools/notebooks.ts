@@ -1,4 +1,4 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer, RegisteredTool } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { BookLoreClient } from "../client.js";
 import { formatPageInfo } from "./format.js";
@@ -7,17 +7,19 @@ import { formatPageInfo } from "./format.js";
 // Tool registration
 // ---------------------------------------------------------------------------
 
-export function registerNotebookTools(server: McpServer, client: BookLoreClient): void {
-  registerListNotebookBooks(server, client);
-  registerGetBookNotebookEntries(server, client);
+export function registerNotebookTools(server: McpServer, client: BookLoreClient): RegisteredTool[] {
+  return [
+    registerListNotebookBooks(server, client),
+    registerGetBookNotebookEntries(server, client),
+  ];
 }
 
 // ---------------------------------------------------------------------------
 // list_notebook_books
 // ---------------------------------------------------------------------------
 
-function registerListNotebookBooks(server: McpServer, client: BookLoreClient): void {
-  server.registerTool(
+function registerListNotebookBooks(server: McpServer, client: BookLoreClient): RegisteredTool {
+  return server.registerTool(
     "list_notebook_books",
     {
       description:
@@ -51,8 +53,8 @@ function registerListNotebookBooks(server: McpServer, client: BookLoreClient): v
 // get_book_notebook_entries
 // ---------------------------------------------------------------------------
 
-function registerGetBookNotebookEntries(server: McpServer, client: BookLoreClient): void {
-  server.registerTool(
+function registerGetBookNotebookEntries(server: McpServer, client: BookLoreClient): RegisteredTool {
+  return server.registerTool(
     "get_book_notebook_entries",
     {
       description: "Get all highlights and notes for a specific book from the BookLore notebook.",

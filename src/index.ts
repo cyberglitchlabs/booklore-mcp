@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { loadConfigFromEnv, BookLoreClient, BookLoreConfig } from "./client.js";
 import { registerAllTools } from "./tools/index.js";
+import { registerMetaTool } from "./tools/meta.js";
 import { createRequire } from "module";
 const _require = createRequire(import.meta.url);
 const { version: SERVER_VERSION } = _require("../package.json") as { version: string };
@@ -19,8 +20,10 @@ async function main(): Promise<void> {
   const client = new BookLoreClient(config);
   const server = createServer();
 
-  // Register all tools before connecting
-  registerAllTools(server, client);
+  // Register all tools; non-books categories disabled pre-connect
+  const registry = registerAllTools(server, client);
+  // Register the meta-tool that lets the LLM enable/disable categories
+  registerMetaTool(server, registry);
 
   // Connect transport — tools registered after this point are also valid (lazy loading)
   const transport = new StdioServerTransport();
