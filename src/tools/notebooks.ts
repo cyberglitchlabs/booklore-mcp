@@ -79,7 +79,7 @@ function registerGetBookNotebookEntries(server: McpServer, client: BookLoreClien
 
       const entryLines = result.content.map((entry) => {
         const chapter = entry.chapterTitle ? ` [${entry.chapterTitle}]` : "";
-        const date = entry.createdAt ? ` (${entry.createdAt.substring(0, 10)})` : "";
+        const date = entry.createdAt ? ` (${new Date(entry.createdAt).toISOString().slice(0, 10)})` : "";
         const typeLabel = entry.type === "HIGHLIGHT" ? "📌" : "📝";
 
         const parts = [`${typeLabel} ${entry.type}${chapter}${date}`];
@@ -92,7 +92,7 @@ function registerGetBookNotebookEntries(server: McpServer, client: BookLoreClien
       const lines = [
         formatPageInfo(result, "entry"),
         "",
-        ...entryLines.join("\n\n").split("\n"),
+        entryLines.join("\n\n"),
       ];
 
       return { content: [{ type: "text", text: lines.join("\n") }] };

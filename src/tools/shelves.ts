@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { BookLoreClient } from "../client.js";
-import { formatBookSummary, formatPageInfo } from "./format.js";
+import { formatBookSummary, formatPageInfo, pluralize } from "./format.js";
 
 // ---------------------------------------------------------------------------
 // Tool registration
@@ -36,7 +36,7 @@ function registerListShelves(server: McpServer, client: BookLoreClient): void {
       });
 
       return {
-        content: [{ type: "text", text: [`${shelves.length} shelf/shelves:`, "", ...lines].join("\n") }],
+        content: [{ type: "text", text: [`${shelves.length} ${pluralize(shelves.length, "shelf", "shelves")}:`, "", ...lines].join("\n") }],
       };
     }
   );
@@ -68,7 +68,7 @@ function registerListMagicShelves(server: McpServer, client: BookLoreClient): vo
       });
 
       return {
-        content: [{ type: "text", text: [`${shelves.length} magic shelf/shelves:`, "", ...lines].join("\n") }],
+        content: [{ type: "text", text: [`${shelves.length} magic ${pluralize(shelves.length, "shelf", "shelves")}:`, "", ...lines].join("\n") }],
       };
     }
   );

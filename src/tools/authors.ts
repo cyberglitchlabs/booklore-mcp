@@ -40,7 +40,7 @@ function registerListAuthors(server: McpServer, client: BookLoreClient): void {
       }
 
       const authorLines = result.content.map((a) => {
-        const photo = a.hasPhoto ? " 📷" : "";
+        const photo = a.hasPhoto ? " [photo]" : "";
         return `• [${a.id}] ${a.name}${photo} — ${a.bookCount} book(s)`;
       });
 

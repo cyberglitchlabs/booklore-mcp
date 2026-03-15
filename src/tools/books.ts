@@ -52,22 +52,8 @@ function registerSearchBooks(server: McpServer, client: BookLoreClient): void {
         size: z.number().int().min(1).max(100).optional().default(20).describe("Page size (1–100)"),
       }),
     },
-    async ({ search, libraryId, shelfId, status, fileType, minRating, maxRating, authors, language, sort, dir, page, size }) => {
-      const result = await client.listBooks({
-        search,
-        libraryId,
-        shelfId,
-        status,
-        fileType,
-        minRating,
-        maxRating,
-        authors,
-        language,
-        sort,
-        dir,
-        page,
-        size,
-      });
+    async (params) => {
+      const result = await client.listBooks(params);
 
       const lines = [
         formatPageInfo(result, "book"),

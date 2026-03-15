@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { formatPageInfo, formatBookSummary, formatBookDetail } from "./format.js";
+import { formatPageInfo, formatBookSummary, formatBookDetail, pluralize } from "./format.js";
 import type { BookSummary, BookDetail, PageResponse } from "../types.js";
 
 // ---------------------------------------------------------------------------
@@ -56,6 +56,11 @@ describe("formatPageInfo", () => {
   test("handles single-item result", () => {
     const result = makePage(["x"], { totalElements: 1 });
     expect(formatPageInfo(result, "author")).toBe("Showing 1–1 of 1 author(s)");
+  });
+
+  test("returns 'No noun(s) found.' when content is empty", () => {
+    const result = makePage([], { totalElements: 0 });
+    expect(formatPageInfo(result, "book")).toBe("No book(s) found.");
   });
 });
 
@@ -363,5 +368,39 @@ describe("formatBookDetail", () => {
 
   test("omits description section when absent", () => {
     expect(formatBookDetail(minimalDetail)).not.toContain("Description:");
+  });
+
+  test("handles non-ISO date string gracefully for addedOn", () => {
+    const book: BookDetail = { ...minimalDetail, addedOn: "not-a-date" };
+    expect(formatBookDetail(book)).toContain("Added: not-a-date");
+  });
+
+  test("handles non-ISO date string gracefully for lastReadTime", () => {
+    const book: BookDetail = { ...minimalDetail, lastReadTime: "not-a-date" };
+    expect(formatBookDetail(book)).toContain("Last read: not-a-date");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// pluralize
+// ---------------------------------------------------------------------------
+
+describe("pluralize", () => {
+  test("returns singular when count is 1", () => {
+    expect(pluralize(1, "library", "libraries")).toBe("library");
+  });
+
+  test("returns explicit plural when count is not 1", () => {
+    expect(pluralize(2, "library", "libraries")).toBe("libraries");
+    expect(pluralize(0, "library", "libraries")).toBe("libraries");
+  });
+
+  test("appends 's' when no explicit plural provided and count is not 1", () => {
+    expect(pluralize(3, "book")).toBe("books");
+    expect(pluralize(0, "book")).toBe("books");
+  });
+
+  test("returns singular for count 1 with no explicit plural", () => {
+    expect(pluralize(1, "book")).toBe("book");
   });
 });

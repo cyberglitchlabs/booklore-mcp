@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { BookLoreClient } from "../client.js";
-import { formatBookSummary, formatPageInfo } from "./format.js";
+import { formatBookSummary, formatPageInfo, pluralize } from "./format.js";
 
 // ---------------------------------------------------------------------------
 // Tool registration
@@ -34,7 +34,7 @@ function registerListLibraries(server: McpServer, client: BookLoreClient): void 
         return `• [${lib.id}] ${lib.name} — ${lib.bookCount} book(s), formats: ${formats}`;
       });
 
-      return { content: [{ type: "text", text: [`${libraries.length} library/libraries:`, "", ...lines].join("\n") }] };
+      return { content: [{ type: "text", text: [`${libraries.length} ${pluralize(libraries.length, "library", "libraries")}:`, "", ...lines].join("\n") }] };
     }
   );
 }

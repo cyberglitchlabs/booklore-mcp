@@ -2,9 +2,11 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { loadConfigFromEnv, BookLoreClient, BookLoreConfig } from "./client.js";
 import { registerAllTools } from "./tools/index.js";
-
+import { createRequire } from "module";
+const _require = createRequire(import.meta.url);
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+const { version: SERVER_VERSION } = _require("../package.json") as { version: string };
 const SERVER_NAME = "booklore-mcp";
-const SERVER_VERSION = "0.1.0";
 
 function createServer(): McpServer {
   return new McpServer({
@@ -33,7 +35,13 @@ async function main(): Promise<void> {
   authenticate(client, config)
     .then(() => verifyConnectivity(client))
     .catch((err: unknown) => {
-      process.stderr.write(`Warning: BookLore startup check failed: ${String(err)}\n`);
+      const isAuthErr =
+        err instanceof Error &&
+        (err.message.includes("401") || err.message.includes("authentication") || err.message.toLowerCase().includes("unauthorized"));
+      const hint = isAuthErr
+        ? "Check BOOKLORE_TOKEN / BOOKLORE_USERNAME / BOOKLORE_PASSWORD"
+        : "Check BOOKLORE_BASE_URL and that BookLore is running and accessible";
+      process.stderr.write(`Warning: BookLore startup check failed: ${String(err)}\n${hint}\n`);
     });
 }
 
@@ -51,7 +59,7 @@ async function authenticate(
 async function verifyConnectivity(client: BookLoreClient): Promise<void> {
   const libraries = await client.listLibraries();
   process.stderr.write(
-    `BookLore connectivity OK — ${libraries.length} library/libraries available\n`
+    `BookLore connectivity OK — ${libraries.length} ${libraries.length === 1 ? "library" : "libraries"} available\n`
   );
 }
 

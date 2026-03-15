@@ -5,10 +5,22 @@ import { BookSummary, BookDetail, PageResponse } from "../types.js";
 // ---------------------------------------------------------------------------
 
 export function formatPageInfo<T>(result: PageResponse<T>, noun: string): string {
+  if (result.content.length === 0) {
+    return `No ${noun}(s) found.`;
+  }
   const start = result.page * result.size + 1;
   const end = start + result.content.length - 1;
   const more = result.hasNext ? ` (page ${result.page + 1} of ${result.totalPages})` : "";
   return `Showing ${start}–${end} of ${result.totalElements} ${noun}(s)${more}`;
+}
+
+// ---------------------------------------------------------------------------
+// Date helpers
+// ---------------------------------------------------------------------------
+
+function toDateString(dateStr: string): string {
+  const d = new Date(dateStr);
+  return isNaN(d.getTime()) ? dateStr : d.toISOString().slice(0, 10);
 }
 
 // ---------------------------------------------------------------------------
@@ -84,8 +96,8 @@ export function formatBookDetail(book: BookDetail): string {
     lines.push(`Formats: ${book.fileTypes.join(", ")}`);
   }
 
-  if (book.addedOn) lines.push(`Added: ${book.addedOn.substring(0, 10)}`);
-  if (book.lastReadTime) lines.push(`Last read: ${book.lastReadTime.substring(0, 10)}`);
+  if (book.addedOn) lines.push(`Added: ${toDateString(book.addedOn)}`);
+  if (book.lastReadTime) lines.push(`Last read: ${toDateString(book.lastReadTime)}`);
 
   // Progress details
   const progressBlocks: string[] = [];
@@ -108,4 +120,12 @@ export function formatBookDetail(book: BookDetail): string {
   }
 
   return lines.join("\n");
+}
+
+// ---------------------------------------------------------------------------
+// Pluralization
+// ---------------------------------------------------------------------------
+
+export function pluralize(count: number, singular: string, plural?: string): string {
+  return count === 1 ? singular : (plural ?? `${singular}s`);
 }

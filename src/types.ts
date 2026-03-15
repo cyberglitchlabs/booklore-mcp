@@ -52,6 +52,16 @@ export type PageResponse<T> = {
   hasPrevious: boolean;
 };
 
+// Compile-time check: PageResponse<T> must match PageResponseSchema shape
+type _CheckPageResponse = PageResponse<unknown> extends z.infer<
+  ReturnType<typeof PageResponseSchema<z.ZodUnknown>>
+>
+  ? true
+  : never;
+const _pageResponseCheck: _CheckPageResponse = true;
+// Suppress unused variable warning
+void _pageResponseCheck;
+
 // ---------------------------------------------------------------------------
 // Book
 // ---------------------------------------------------------------------------
@@ -87,17 +97,14 @@ const EpubProgressSchema = z.object({
   updatedAt: z.string().nullable().optional(),
 });
 
-const PdfProgressSchema = z.object({
+const PagedProgressSchema = z.object({
   page: z.number().int().nullable().optional(),
   percentage: z.number().nullable().optional(),
   updatedAt: z.string().nullable().optional(),
 });
 
-const CbxProgressSchema = z.object({
-  page: z.number().int().nullable().optional(),
-  percentage: z.number().nullable().optional(),
-  updatedAt: z.string().nullable().optional(),
-});
+const PdfProgressSchema = PagedProgressSchema;
+const CbxProgressSchema = PagedProgressSchema;
 
 const AudiobookProgressSchema = z.object({
   positionMs: z.number().int().nullable().optional(),

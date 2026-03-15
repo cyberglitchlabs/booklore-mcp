@@ -38,9 +38,18 @@ export type BookLoreConfig =
   | { baseUrl: string; username: string; password: string; token?: never };
 
 export function loadConfigFromEnv(): BookLoreConfig {
-  const baseUrl = (
-    process.env["BOOKLORE_BASE_URL"] ?? "http://localhost:6060"
-  ).replace(/\/$/, "");
+  const rawUrl = process.env["BOOKLORE_BASE_URL"] ?? "http://localhost:6060";
+  let baseUrl: string;
+  try {
+    const parsed = new URL(rawUrl);
+    if (!["http:", "https:"].includes(parsed.protocol)) {
+      throw new Error(`Protocol must be http or https, got: ${parsed.protocol}`);
+    }
+    baseUrl = `${parsed.protocol}//${parsed.host}`;
+  } catch (err) {
+    if (err instanceof Error && err.message.startsWith("Protocol must")) throw err;
+    throw new Error(`BOOKLORE_BASE_URL is not a valid URL: ${rawUrl}`);
+  }
 
   const token = process.env["BOOKLORE_TOKEN"];
   if (token) {
@@ -116,6 +125,7 @@ export class BookLoreClient {
   private readonly credentials: { username: string; password: string } | null;
   private accessToken: string;
   private refreshToken: string;
+  private refreshing: Promise<void> | null = null;
 
   constructor(config: BookLoreConfig) {
     this.baseUrl = config.baseUrl;
@@ -123,10 +133,12 @@ export class BookLoreClient {
       this.credentials = null;
       this.accessToken = config.token;
       this.refreshToken = "";
-    } else {
-      this.credentials = { username: config.username!, password: config.password! };
+    } else if ("username" in config && config.username !== undefined && config.password !== undefined) {
+      this.credentials = { username: config.username, password: config.password };
       this.accessToken = "";
       this.refreshToken = "";
+    } else {
+      throw new Error("BookLore config is missing username or password");
     }
   }
 
@@ -146,10 +158,12 @@ export class BookLoreClient {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
       body: JSON.stringify({ username, password }),
+      signal: AbortSignal.timeout(30_000),
     });
     if (!response.ok) {
       const text = await response.text().catch(() => response.statusText);
-      throw new BookLoreApiError(response.status, "/api/v1/auth/login", text);
+      const safeText = response.status >= 500 ? "Internal server error" : text.slice(0, 200);
+      throw new BookLoreApiError(response.status, "/api/v1/auth/login", safeText);
     }
     const json: unknown = await response.json();
     const data = LoginResponseSchema.parse(json);
@@ -159,6 +173,14 @@ export class BookLoreClient {
   }
 
   private async refreshAccessToken(): Promise<void> {
+    if (this.refreshing) return this.refreshing;
+    this.refreshing = this._doRefresh().finally(() => {
+      this.refreshing = null;
+    });
+    return this.refreshing;
+  }
+
+  private async _doRefresh(): Promise<void> {
     if (!this.refreshToken) {
       throw new Error("No refresh token available — cannot refresh access token");
     }
@@ -167,10 +189,19 @@ export class BookLoreClient {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
       body: JSON.stringify({ token: this.refreshToken }),
+      signal: AbortSignal.timeout(30_000),
     });
     if (!response.ok) {
+      // Clear stale tokens and attempt re-login if credentials are available
+      this.accessToken = "";
+      this.refreshToken = "";
+      if (this.credentials) {
+        await this.login(this.credentials.username, this.credentials.password);
+        return;
+      }
       const text = await response.text().catch(() => response.statusText);
-      throw new BookLoreApiError(response.status, "/api/v1/auth/refresh-token", text);
+      const safeText = response.status >= 500 ? "Internal server error" : text.slice(0, 200);
+      throw new BookLoreApiError(response.status, "/api/v1/auth/refresh-token", safeText);
     }
     const json: unknown = await response.json();
     const data = RefreshResponseSchema.parse(json);
@@ -197,10 +228,10 @@ export class BookLoreClient {
     params?: Params
   ): Promise<T> {
     const url = buildUrl(this.baseUrl, path, params);
-    const response = await fetch(url, { headers: this.authHeaders() });
+    const response = await fetch(url, { headers: this.authHeaders(), signal: AbortSignal.timeout(30_000) });
     if (response.status === 401 && this.credentials !== null) {
       await this.refreshAccessToken();
-      const retried = await fetch(url, { headers: this.authHeaders() });
+      const retried = await fetch(url, { headers: this.authHeaders(), signal: AbortSignal.timeout(30_000) });
       return this.parseResponse(retried, path, schema);
     }
     return this.parseResponse(response, path, schema);
@@ -216,6 +247,7 @@ export class BookLoreClient {
       method: "PUT",
       headers: this.authHeaders(),
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(30_000),
     });
     if (response.status === 401 && this.credentials !== null) {
       await this.refreshAccessToken();
@@ -223,6 +255,7 @@ export class BookLoreClient {
         method: "PUT",
         headers: this.authHeaders(),
         body: JSON.stringify(body),
+        signal: AbortSignal.timeout(30_000),
       });
       return this.parseResponse(retried, path, schema);
     }
@@ -236,7 +269,8 @@ export class BookLoreClient {
   ): Promise<T> {
     if (!response.ok) {
       const text = await response.text().catch(() => response.statusText);
-      throw new BookLoreApiError(response.status, path, text);
+      const safeText = response.status >= 500 ? "Internal server error" : text.slice(0, 200);
+      throw new BookLoreApiError(response.status, path, safeText);
     }
     const json: unknown = await response.json();
     return schema.parse(json);

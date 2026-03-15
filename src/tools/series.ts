@@ -27,7 +27,7 @@ function registerListSeries(server: McpServer, client: BookLoreClient): void {
         search: z.string().optional().describe("Search by series name"),
         libraryId: z.number().int().positive().optional().describe("Filter by library ID"),
         status: z
-          .literal("in-progress")
+          .enum(["in-progress"])
           .optional()
           .describe("Pass 'in-progress' to show only series you are currently reading"),
         sort: z.string().optional().describe("Sort field (e.g. 'seriesName', 'latestAddedOn')"),
