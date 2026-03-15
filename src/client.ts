@@ -48,7 +48,7 @@ export function loadConfigFromEnv(): BookLoreConfig {
     baseUrl = `${parsed.protocol}//${parsed.host}`;
   } catch (err) {
     if (err instanceof Error && err.message.startsWith("Protocol must")) throw err;
-    throw new Error(`BOOKLORE_BASE_URL is not a valid URL: ${rawUrl}`);
+    throw new Error(`BOOKLORE_BASE_URL is not a valid URL: ${rawUrl}`, { cause: err });
   }
 
   const token = process.env["BOOKLORE_TOKEN"];

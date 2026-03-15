@@ -4,7 +4,6 @@ import { loadConfigFromEnv, BookLoreClient, BookLoreConfig } from "./client.js";
 import { registerAllTools } from "./tools/index.js";
 import { createRequire } from "module";
 const _require = createRequire(import.meta.url);
-// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 const { version: SERVER_VERSION } = _require("../package.json") as { version: string };
 const SERVER_NAME = "booklore-mcp";
 
