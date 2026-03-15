@@ -1,6 +1,6 @@
 {
   "name": "@cyberglitchlabs/booklore-mcp",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "MCP server for BookLore — self-hosted digital library manager",
   "type": "module",
   "main": "dist/index.js",
