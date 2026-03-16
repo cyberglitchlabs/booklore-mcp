@@ -3,6 +3,9 @@ name: CodeReviewer
 description: Code review, security, and quality assurance agent
 mode: subagent
 temperature: 0.1
+dependencies:
+  - context:core/workflows/review
+  - context:core/standards/code-quality
 permission:
   bash:
     "*": "deny"

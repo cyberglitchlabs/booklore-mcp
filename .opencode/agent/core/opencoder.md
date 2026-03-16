@@ -3,6 +3,8 @@ name: OpenCoder
 description: "Orchestration agent for complex coding, architecture, and multi-file refactoring"
 mode: primary
 temperature: 0.1
+dependencies:
+  - context:core/standards/code-quality
 permission:
   bash:
     "rm -rf *": "ask"

@@ -3,6 +3,15 @@ name: TaskManager
 description: JSON-driven task breakdown specialist transforming complex features into atomic, verifiable subtasks with dependency tracking and CLI integration
 mode: subagent
 temperature: 0.1
+dependencies:
+  - context:core/standards/code-quality
+  - context:core/standards/security-patterns
+  - context:core/task-management/navigation
+  - context:core/task-management/standards/task-schema
+  - context:core/task-management/guides/splitting-tasks
+  - context:core/task-management/guides/managing-tasks
+  - context:core/workflows/design-iteration-overview
+  - context:ui/web/ui-styling-standards
 permission:
   bash:
     "*": "deny"

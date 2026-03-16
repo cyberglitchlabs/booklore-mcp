@@ -3,6 +3,12 @@ name: OpenAgent
 description: "Universal agent for answering queries, executing tasks, and coordinating workflows across any domain"
 mode: primary
 temperature: 0.2
+dependencies:
+  - context:core/standards/code-quality
+  - context:core/standards/documentation
+  - context:core/standards/test-coverage
+  - context:core/workflows/code-review
+  - context:core/workflows/task-delegation-basics
 permission:
   bash:
     "*": "ask"
