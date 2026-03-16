@@ -63,20 +63,38 @@ function registerListSeries(server: McpServer, client: BookLoreClient): Register
 // get_series_books
 // ---------------------------------------------------------------------------
 
+// Helper to apply a larger default page size while keeping pagination fields consistent.
+function withLargerPageSize<T extends z.ZodRawShape>(
+  base: z.ZodObject<T>,
+  newDefault: number
+): z.ZodObject<T & { size: z.ZodOptional<z.ZodNumber> }> {
+  return base.extend({
+    // Override the default page size with a custom value.
+    size: z
+      .number()
+      .int()
+      .min(1)
+      .max(100)
+      .optional()
+      .default(newDefault)
+      .describe("Page size (1–100)"),
+  }) as unknown as z.ZodObject<T & { size: z.ZodOptional<z.ZodNumber> }>; // base already has size from PaginationSchema; extend replaces it
+}
+
 function registerGetSeriesBooks(server: McpServer, client: BookLoreClient): RegisteredTool {
+  const baseSchema = z.object({
+    ...PaginationSchema.shape,
+    ...SortSchema.shape,
+    // P2-C: seriesName is required — add .min(1) to reject empty strings
+    seriesName: z.string().min(1).describe("The exact series name (use list_series to find names)"),
+    libraryId: z.number().int().positive().optional().describe("Filter by library ID"),
+  });
+
   return server.registerTool(
     "get_series_books",
     {
       description: "Get all books in a specific series, ordered by series number.",
-      inputSchema: z.object({
-        ...PaginationSchema.shape,
-        ...SortSchema.shape,
-        // P2-C: seriesName is required — add .min(1) to reject empty strings
-        seriesName: z.string().min(1).describe("The exact series name (use list_series to find names)"),
-        libraryId: z.number().int().positive().optional().describe("Filter by library ID"),
-        // size override: larger default for series (most series fit in one page)
-        size: z.number().int().min(1).max(100).optional().default(50).describe("Page size (1–100)"),
-      }),
+      inputSchema: withLargerPageSize(baseSchema, 50),
     },
     wrapToolHandler(async ({ seriesName, libraryId, sort, dir, page, size }) => {
       const result = await client.getSeriesBooks(seriesName, { libraryId, sort, dir, page, size });
