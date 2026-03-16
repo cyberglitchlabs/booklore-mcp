@@ -89,6 +89,14 @@ export function withPageSizeDefault<T extends z.ZodRawShape>(
   base: z.ZodObject<T>,
   newDefault: number
 ): z.ZodObject<Omit<T, "size"> & { size: z.ZodDefault<z.ZodOptional<z.ZodNumber>> }> {
+  if (newDefault < 1 || newDefault > 100) {
+    throw new Error(`withPageSizeDefault: newDefault must be 1–100, got ${newDefault}`);
+  }
+  // NOTE: The `as unknown as` cast is required because ZodObject.extend() returns
+  // ZodObject<T & U> internally, but the inferred type is not structurally assignable
+  // to ZodObject<Omit<T,"size"> & {size:...}> even though they are equivalent at
+  // runtime. This is a Zod v3 generic inference limitation, not a type safety escape
+  // hatch — .extend() always replaces the "size" key, making the cast safe.
   return base.extend({
     size: z.number().int().min(1).max(100).optional().default(newDefault).describe("Page size (1–100)"),
   }) as unknown as z.ZodObject<Omit<T, "size"> & { size: z.ZodDefault<z.ZodOptional<z.ZodNumber>> }>;
