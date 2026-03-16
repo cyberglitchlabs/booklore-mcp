@@ -3,7 +3,7 @@ import { z } from "zod";
 import { BookLoreClient } from "../client.js";
 import { formatPageInfo, formatBookPage } from "./format.js";
 import { wrapToolHandler } from "./errors.js";
-import { PaginationSchema, SortSchema, AuthorSortSchema, BookSortSchema } from "./schemas.js";
+import { PaginationSchema, SortSchema, AuthorSortSchema, BookSortSchema, withPageSizeDefault } from "./schemas.js";
 
 // ---------------------------------------------------------------------------
 // Tool registration
@@ -91,21 +91,23 @@ function registerGetAuthor(server: McpServer, client: BookLoreClient): Registere
 // get_author_books
 // ---------------------------------------------------------------------------
 
+const authorBooksSchema = withPageSizeDefault(
+  z.object({
+    ...PaginationSchema.shape,
+    ...SortSchema.shape,
+    authors: z.string().min(1).describe("Author name to filter by (use list_authors to find exact names)"),
+    libraryId: z.number().int().positive().optional().describe("Filter by library ID"),
+    sort: BookSortSchema,
+  }),
+  50
+);
+
 function registerGetAuthorBooks(server: McpServer, client: BookLoreClient): RegisteredTool {
   return server.registerTool(
     "get_author_books",
     {
       description: "Get all books by a specific author.",
-      inputSchema: z.object({
-        ...PaginationSchema.shape,
-        ...SortSchema.shape,
-        // P2-C: authors is required — add .min(1) to reject empty strings
-        authors: z.string().min(1).describe("Author name to filter by (use list_authors to find exact names)"),
-        libraryId: z.number().int().positive().optional().describe("Filter by library ID"),
-        sort: BookSortSchema,
-        // size override: larger default for author book lists
-        size: z.number().int().min(1).max(100).optional().default(50).describe("Page size (1–100)"),
-      }),
+      inputSchema: authorBooksSchema,
     },
     wrapToolHandler(async ({ authors, libraryId, sort, dir, page, size }) => {
       const result = await client.listBooks({ authors, libraryId, sort, dir, page, size });
