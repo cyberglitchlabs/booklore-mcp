@@ -7,9 +7,8 @@ import { z } from "zod";
 // - page:  0-indexed page number (matches BookLore API convention)
 // - size:  number of items per page (1–100, default 20)
 //
-// Tools that need a larger default page size (e.g. get_series_books,
-// get_author_books) override the `size` default by overriding the field after
-// spreading: z.object({ ...PaginationSchema.shape, size: z.number()...default(50) })
+// Tools that need a larger default page size use withPageSizeDefault(base, n)
+// exported below, which extends a ZodObject with a replacement `size` field.
 // ---------------------------------------------------------------------------
 
 export const PaginationSchema = z.object({
@@ -71,3 +70,34 @@ export const AuthorSortSchema = z
   .enum(["name", "bookCount"])
   .optional()
   .describe("Sort field: name or bookCount");
+
+// ---------------------------------------------------------------------------
+// withPageSizeDefault
+//
+// Extends a ZodObject by replacing its `size` field with a new one that has
+// a different default. Use this instead of inline size re-declarations when a
+// tool needs a larger-than-standard page size default.
+//
+// Example:
+//   const schema = withPageSizeDefault(
+//     z.object({ ...PaginationSchema.shape, ...SortSchema.shape, id: z.number() }),
+//     50
+//   );
+// ---------------------------------------------------------------------------
+
+export function withPageSizeDefault<T extends z.ZodRawShape>(
+  base: z.ZodObject<T>,
+  newDefault: number
+): z.ZodObject<Omit<T, "size"> & { size: z.ZodDefault<z.ZodOptional<z.ZodNumber>> }> {
+  if (newDefault < 1 || newDefault > 100) {
+    throw new Error(`withPageSizeDefault: newDefault must be 1–100, got ${newDefault}`);
+  }
+  // NOTE: The `as unknown as` cast is required because ZodObject.extend() returns
+  // ZodObject<T & U> internally, but the inferred type is not structurally assignable
+  // to ZodObject<Omit<T,"size"> & {size:...}> even though they are equivalent at
+  // runtime. This is a Zod v3 generic inference limitation, not a type safety escape
+  // hatch — .extend() always replaces the "size" key, making the cast safe.
+  return base.extend({
+    size: z.number().int().min(1).max(100).optional().default(newDefault).describe("Page size (1–100)"),
+  }) as unknown as z.ZodObject<Omit<T, "size"> & { size: z.ZodDefault<z.ZodOptional<z.ZodNumber>> }>;
+}

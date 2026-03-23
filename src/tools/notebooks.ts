@@ -3,7 +3,7 @@ import { z } from "zod";
 import { BookLoreClient } from "../client.js";
 import { formatPageInfo, formatNotebookEntry } from "./format.js";
 import { wrapToolHandler } from "./errors.js";
-import { PaginationSchema } from "./schemas.js";
+import { PaginationSchema, withPageSizeDefault } from "./schemas.js";
 
 // ---------------------------------------------------------------------------
 // Tool registration
@@ -54,24 +54,26 @@ function registerListNotebookBooks(server: McpServer, client: BookLoreClient): R
 // get_book_notebook_entries
 // ---------------------------------------------------------------------------
 
+const notebookEntriesSchema = withPageSizeDefault(
+  z.object({
+    ...PaginationSchema.shape,
+    bookId: z.number().int().positive().describe("The BookLore book ID"),
+    search: z.string().optional().describe("Search within entries by text"),
+    sort: z
+      .enum(["date_desc", "date_asc"])
+      .optional()
+      .default("date_desc")
+      .describe("Sort order: date_desc (newest first) or date_asc (oldest first)"),
+  }),
+  50
+);
+
 function registerGetBookNotebookEntries(server: McpServer, client: BookLoreClient): RegisteredTool {
   return server.registerTool(
     "get_book_notebook_entries",
     {
       description: "Get all highlights and notes for a specific book from the BookLore notebook.",
-      inputSchema: z.object({
-        ...PaginationSchema.shape,
-        // size override: larger default for notebook entries
-        size: z.number().int().min(1).max(100).optional().default(50).describe("Page size (1–100)"),
-        bookId: z.number().int().positive().describe("The BookLore book ID"),
-        search: z.string().optional().describe("Search within entries by text"),
-        // P2-G + P3-H: narrow sort to the exact enum the client/API accepts
-        sort: z
-          .enum(["date_desc", "date_asc"])
-          .optional()
-          .default("date_desc")
-          .describe("Sort order: date_desc (newest first) or date_asc (oldest first)"),
-      }),
+      inputSchema: notebookEntriesSchema,
     },
     wrapToolHandler(async ({ bookId, search, sort, page, size }) => {
       const result = await client.getBookNotebookEntries(bookId, { search, sort, page, size });

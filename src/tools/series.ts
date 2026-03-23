@@ -3,7 +3,7 @@ import { z } from "zod";
 import { BookLoreClient } from "../client.js";
 import { formatPageInfo, formatBookPage } from "./format.js";
 import { wrapToolHandler } from "./errors.js";
-import { PaginationSchema, SortSchema, SeriesSortSchema } from "./schemas.js";
+import { PaginationSchema, SortSchema, SeriesSortSchema, withPageSizeDefault } from "./schemas.js";
 
 // ---------------------------------------------------------------------------
 // Tool registration
@@ -63,20 +63,22 @@ function registerListSeries(server: McpServer, client: BookLoreClient): Register
 // get_series_books
 // ---------------------------------------------------------------------------
 
+const seriesBooksSchema = withPageSizeDefault(
+  z.object({
+    ...PaginationSchema.shape,
+    ...SortSchema.shape,
+    seriesName: z.string().min(1).describe("The exact series name (use list_series to find names)"),
+    libraryId: z.number().int().positive().optional().describe("Filter by library ID"),
+  }),
+  50
+);
+
 function registerGetSeriesBooks(server: McpServer, client: BookLoreClient): RegisteredTool {
   return server.registerTool(
     "get_series_books",
     {
       description: "Get all books in a specific series, ordered by series number.",
-      inputSchema: z.object({
-        ...PaginationSchema.shape,
-        ...SortSchema.shape,
-        // P2-C: seriesName is required — add .min(1) to reject empty strings
-        seriesName: z.string().min(1).describe("The exact series name (use list_series to find names)"),
-        libraryId: z.number().int().positive().optional().describe("Filter by library ID"),
-        // size override: larger default for series (most series fit in one page)
-        size: z.number().int().min(1).max(100).optional().default(50).describe("Page size (1–100)"),
-      }),
+      inputSchema: seriesBooksSchema,
     },
     wrapToolHandler(async ({ seriesName, libraryId, sort, dir, page, size }) => {
       const result = await client.getSeriesBooks(seriesName, { libraryId, sort, dir, page, size });
